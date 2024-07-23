@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "compressa-perf"
+version = "0.1.0"
+description = "Performance Measurement tool by Compresss"
+authors = ["Gleb Morgachev <morgachev.g@gmail.com>"]
+readme = "README.md"
+packages = [{include = "compressa", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[tool.poetry.group.dev.dependencies]
+jupyterlab = "^4.2.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
