@@ -9,9 +9,11 @@ packages = [{include = "compressa", from = "src"}]
 [tool.poetry.dependencies]
 python = "^3.12"
 
-
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.2.4"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
 
 [build-system]
 requires = ["poetry-core"]
