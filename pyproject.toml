@@ -8,6 +8,7 @@ packages = [{include = "compressa", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
+python-dotenv = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.2.4"

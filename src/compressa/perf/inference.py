@@ -5,6 +5,8 @@ from typing import List, Dict
 from compressa.perf.data.models import MetricName, Metric
 from compressa.perf.db.operations import insert_metric
 import sqlite3
+import datetime
+import textwrap
 
 
 logger = logging.getLogger(__name__)
@@ -52,52 +54,66 @@ class InferenceRunner:
         metrics = []
         first_token_time = None
         total_tokens = 0
+        ttft = 0
 
         for chunk in response:
-            if 'choices' in chunk and len(chunk['choices']) > 0:
-                token = chunk['choices'][0]['text']
-                if token:
-                    if first_token_time is None:
-                        first_token_time = time.time()
-                        ttft = first_token_time - start_time
-                        metrics.append(
-                            Metric(
-                                experiment_id=experiment_id,
-                                metric_name=MetricName.TTFT,
-                                metric_value=ttft,
-                                parameters_id=parameters_id
-                            )
+            if chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                if first_token_time is None:
+                    first_token_time = time.time()
+                    ttft = first_token_time - start_time
+                    metrics.append(
+                        Metric(
+                            metric_id=None,
+                            experiment_id=experiment_id,
+                            metric_name=MetricName.TTFT,
+                            metric_value=ttft,
+                            parameters_id=parameters_id,
+                            timestamp=datetime.datetime.now()
                         )
-                    total_tokens += 1
+                    )
+                total_tokens += 1
 
+        print(f"Total tokens: {total_tokens}")
+        print(f"TTFT: {ttft:.4f}s")
         end_time = time.time()
         total_time = end_time - start_time
 
         throughput = total_tokens / total_time if total_time > 0 else 0
 
-        insert_metric(
-            self.conn,
-            experiment_id=experiment_id,
-            metric_name=MetricName.THROUGHPUT,
-            metric_value=throughput,
-            parameters_id=parameters_id
+        metrics.append(
+            Metric(
+                metric_id=None,
+                experiment_id=experiment_id,
+                metric_name=MetricName.THROUGHPUT,
+                metric_value=throughput,
+                parameters_id=parameters_id,
+                timestamp=datetime.datetime.now()
+            )
         )
 
-        insert_metric(
-            self.conn,
-            experiment_id=experiment_id,
-            metric_name=MetricName.LATENCY,
-            metric_value=total_time,
-            parameters_id=parameters_id
+        metrics.append(
+            Metric(
+                metric_id=None,
+                experiment_id=experiment_id,
+                metric_name=MetricName.LATENCY,
+                metric_value=total_time,
+                parameters_id=parameters_id,
+                timestamp=datetime.datetime.now()
+            )
         )
 
         print(
-            f"""
+            textwrap.dedent(f"""
             Inference completed:
                 TTFT={ttft:.4f}s,
                 Total Time={total_time:.4f}s,
                 Throughput={throughput:.2f} tokens/s
             """
+            )
         )
+
+        for metric in metrics:
+            insert_metric(self.conn, metric)
 
         return metrics

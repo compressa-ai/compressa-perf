@@ -14,13 +14,13 @@ import datetime
 
 # Insert Operations
 
-def insert_experiment(conn, experiment_name: str, description: Optional[str] = None) -> int:
+def insert_experiment(conn, experiment: Experiment) -> int:
     sql = """
     INSERT INTO Experiments (experiment_name, description)
     VALUES (?, ?)
     """
     with conn:
-        cur = conn.execute(sql, (experiment_name, description))
+        cur = conn.execute(sql, (experiment.experiment_name, experiment.description))
     return cur.lastrowid
 
 
