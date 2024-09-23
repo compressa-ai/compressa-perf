@@ -1,9 +1,7 @@
 import unittest
 import sqlite3
 from compressa.perf.inference import InferenceRunner
-from tests.test_db import DB_NAME
-
-
+from compressa.perf.db import DB_NAME
 
 class TestData(unittest.TestCase):
     def setUp(self):
@@ -12,7 +10,7 @@ class TestData(unittest.TestCase):
     def tearDown(self):
         print('tearDown')
 
-    def test_deploy(self):
+    def test_inference(self):
         with sqlite3.connect(DB_NAME) as conn:
             runner = InferenceRunner(
                 conn=conn,

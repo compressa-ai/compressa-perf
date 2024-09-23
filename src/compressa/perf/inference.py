@@ -18,11 +18,9 @@ class InferenceRunner:
         openai_api_key: str,
         openai_url: str,
         model_name: str,
-        deploy_id: int
     ):
         self.conn = conn
         self.model_name = model_name
-        self.deploy_id = deploy_id
         self.client = openai.OpenAI(
             api_key=openai_api_key,
             base_url=openai_url
@@ -67,18 +65,8 @@ class InferenceRunner:
                                 experiment_id=experiment_id,
                                 metric_name=MetricName.TTFT,
                                 metric_value=ttft,
-                                deploy_id=self.deploy_id,
                                 parameters_id=parameters_id
                             )
-                        )
-                        # Insert TTFT metric
-                        insert_metric(
-                            self.conn,
-                            experiment_id=experiment_id,
-                            metric_name=MetricName.TTFT,
-                            metric_value=ttft,
-                            deploy_id=self.deploy_id,
-                            parameters_id=parameters_id
                         )
                     total_tokens += 1
 
@@ -92,7 +80,6 @@ class InferenceRunner:
             experiment_id=experiment_id,
             metric_name=MetricName.THROUGHPUT,
             metric_value=throughput,
-            deploy_id=self.deploy_id,
             parameters_id=parameters_id
         )
 
@@ -101,7 +88,6 @@ class InferenceRunner:
             experiment_id=experiment_id,
             metric_name=MetricName.LATENCY,
             metric_value=total_time,
-            deploy_id=self.deploy_id,
             parameters_id=parameters_id
         )
 

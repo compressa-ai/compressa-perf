@@ -4,7 +4,6 @@ import sqlite3
 from typing import List, Optional
 from compressa.perf.data.models import (
     Experiment,
-    Deploy,
     Metric,
     Parameter,
     Artifact,
@@ -25,16 +24,6 @@ def insert_experiment(conn, experiment_name: str, description: Optional[str] = N
     return cur.lastrowid
 
 
-def insert_deploy(conn, model_name: str, hardware: str, context_length: int, quantization: str) -> int:
-    sql = """
-    INSERT INTO Deploys (model_name, hardware, context_length, quantization)
-    VALUES (?, ?, ?, ?)
-    """
-    with conn:
-        cur = conn.execute(sql, (model_name, hardware, context_length, quantization))
-    return cur.lastrowid
-
-
 def insert_parameter(conn, experiment_id: int, param_key: str, param_value: str) -> int:
     sql = """
     INSERT INTO Parameters (experiment_id, param_key, param_value)
@@ -45,19 +34,32 @@ def insert_parameter(conn, experiment_id: int, param_key: str, param_value: str)
     return cur.lastrowid
 
 
-def insert_metric(conn, experiment_id: int, metric_name: MetricName, metric_value: float,
-                  deploy_id: Optional[int] = None, parameters_id: Optional[int] = None) -> int:
+def insert_metric(conn, metric: Metric) -> Metric:
     sql = """
-    INSERT INTO Metrics (experiment_id, metric_name, metric_value, deploy_id, parameters_id)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO Metrics (experiment_id, metric_name, metric_value, parameters_id)
+    VALUES (?, ?, ?, ?)
     """
     with conn:
-        cur = conn.execute(sql, (experiment_id, metric_name.value, metric_value, deploy_id, parameters_id))
-    return cur.lastrowid
+        cur = conn.execute(
+            sql,
+            (
+                metric.experiment_id,
+                metric.metric_name.value,
+                metric.metric_value,
+                metric.parameters_id
+            )
+        )
+        metric.metric_id = cur.lastrowid
+    return metric
 
 
-def insert_artifact(conn, experiment_id: int, artifact_name: str, artifact_path: str,
-                    description: Optional[str] = None) -> int:
+def insert_artifact(
+    conn,
+    experiment_id: int,
+    artifact_name: str,
+    artifact_path: str,
+    description: Optional[str] = None
+) -> int:
     sql = """
     INSERT INTO Artifacts (experiment_id, artifact_name, artifact_path, description)
     VALUES (?, ?, ?, ?)
@@ -90,8 +92,7 @@ def fetch_metrics_by_experiment(conn, experiment_id: int) -> List[Metric]:
             metric_name=MetricName(row[2]),
             metric_value=row[3],
             timestamp=datetime.datetime.strptime(row[4], '%Y-%m-%d %H:%M:%S'),
-            parameters_id=row[5],
-            deploy_id=row[6]
+            parameters_id=row[5]
         ))
     return metrics
 
@@ -111,10 +112,3 @@ def fetch_artifacts_by_experiment(conn, experiment_id: int) -> List[Artifact]:
     rows = cur.fetchall()
     return [Artifact(*row) for row in rows]
 
-
-def fetch_deploy_by_id(conn, deploy_id: int) -> Optional[Deploy]:
-    sql = "SELECT * FROM Deploys WHERE deploy_id = ?"
-    cur = conn.cursor()
-    cur.execute(sql, (deploy_id,))
-    row = cur.fetchone()
-    return Deploy(*row) if row else None

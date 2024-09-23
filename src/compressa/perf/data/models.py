@@ -29,23 +29,13 @@ class Experiment:
 
 
 @dataclass
-class Deploy:
-    deploy_id: int
-    model_name: str
-    hardware: str
-    context_length: int
-    quantization: str
-
-
-@dataclass
 class Metric:
-    metric_id: int = None
+    metric_id: int
     experiment_id: int
     metric_name: MetricName
     metric_value: float
     timestamp: datetime.datetime
     parameters_id: Optional[int] = None
-    deploy_id: Optional[int] = None
 
 
 @dataclass

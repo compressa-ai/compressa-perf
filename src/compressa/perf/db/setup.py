@@ -14,15 +14,6 @@ def create_tables(conn):
             );
             """)
             conn.execute("""
-            CREATE TABLE IF NOT EXISTS Deploys (
-                deploy_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                model_name TEXT NOT NULL,
-                hardware TEXT NOT NULL,
-                context_length INTEGER NOT NULL,
-                quantization TEXT NOT NULL
-            );
-            """)
-            conn.execute("""
             CREATE TABLE IF NOT EXISTS Parameters (
                 parameters_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 experiment_id INTEGER NOT NULL,
@@ -39,10 +30,8 @@ def create_tables(conn):
                 metric_value REAL NOT NULL,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 parameters_id INTEGER,
-                deploy_id INTEGER,
                 FOREIGN KEY (experiment_id) REFERENCES Experiments(experiment_id),
-                FOREIGN KEY (parameters_id) REFERENCES Parameters(parameters_id),
-                FOREIGN KEY (deploy_id) REFERENCES Deploys(deploy_id)
+                FOREIGN KEY (parameters_id) REFERENCES Parameters(parameters_id)
             );
             """)
             conn.execute("""
@@ -58,4 +47,3 @@ def create_tables(conn):
         print("Tables created successfully")
     except sqlite3.Error as e:
         print(f"An error occurred: {e}")
-    
