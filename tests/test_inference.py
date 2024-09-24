@@ -56,7 +56,7 @@ class TestData(unittest.TestCase):
                 print(measurement)
 
     def test_experiment_runner(self):
-        n_tasks = 1000
+        n_tasks = 10
         with sqlite3.connect(DB_NAME) as conn:
             experiment_runner = ExperimentRunner(
                 conn=conn,

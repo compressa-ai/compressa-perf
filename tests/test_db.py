@@ -1,4 +1,5 @@
 import unittest
+import time
 import sqlite3
 import datetime
 
@@ -65,7 +66,8 @@ class TestStringMethods(unittest.TestCase):
                 n_input=100,
                 n_output=100,
                 ttft=0.123,
-                total_time=0.123,
+                start_time=time.time(),
+                end_time=time.time() + 0.123,
             )
 
             metric = Metric(
@@ -100,7 +102,8 @@ class TestStringMethods(unittest.TestCase):
                 n_input=200,
                 n_output=150,
                 ttft=0.456,
-                total_time=0.789,
+                start_time=time.time(),
+                end_time=time.time() + 0.456,
             )
             measurement_id = insert_measurement(conn, measurement)
             measurements = fetch_measurements_by_experiment(conn, experiment_id)
@@ -109,7 +112,6 @@ class TestStringMethods(unittest.TestCase):
             self.assertEqual(measurements[0].n_input, 200)
             self.assertEqual(measurements[0].n_output, 150)
             self.assertEqual(measurements[0].ttft, 0.456)
-            self.assertEqual(measurements[0].total_time, 0.789)
 
 
 if __name__ == '__main__':

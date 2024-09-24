@@ -58,8 +58,8 @@ def insert_metric(conn, metric: Metric) -> int:
 
 def insert_measurement(conn, measurement: Measurement) -> int:
     sql = """
-    INSERT INTO Measurements (experiment_id, n_input, n_output, ttft, total_time)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO Measurements (experiment_id, n_input, n_output, ttft, start_time, end_time)
+    VALUES (?, ?, ?, ?, ?, ?)
     """
     with conn:
         cur = conn.execute(
@@ -69,7 +69,8 @@ def insert_measurement(conn, measurement: Measurement) -> int:
                 measurement.n_input,
                 measurement.n_output,
                 measurement.ttft,
-                measurement.total_time,
+                measurement.start_time,
+                measurement.end_time,
             ),
         )
     return cur.lastrowid

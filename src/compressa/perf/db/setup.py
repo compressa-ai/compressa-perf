@@ -47,7 +47,8 @@ def create_tables(conn):
                 n_input INTEGER NOT NULL,
                 n_output INTEGER NOT NULL,
                 ttft REAL NOT NULL,
-                total_time REAL NOT NULL,
+                start_time REAL NOT NULL,
+                end_time REAL NOT NULL,
                 FOREIGN KEY (experiment_id) REFERENCES Experiments(experiment_id)
             );
             """

@@ -5,19 +5,16 @@ from typing import List, Dict
 from compressa.perf.data.models import Measurement
 from compressa.perf.db.operations import insert_measurement
 import sqlite3
-import datetime
 import textwrap
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import random
 
 from transformers import AutoTokenizer
 
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-72B-Instruct")
-
 
 class InferenceRunner:
     def __init__(
@@ -63,7 +60,6 @@ class InferenceRunner:
                     ttft = first_token_time - start_time
 
         end_time = time.time()
-        total_time = end_time - start_time
 
         if not chunk.usage:
             logger.error(f"Usage not found in response")
@@ -79,7 +75,8 @@ class InferenceRunner:
             n_input=n_input,
             n_output=n_output,
             ttft=ttft,
-            total_time=total_time
+            start_time=start_time,
+            end_time=end_time
         )
 
         return measurement

@@ -90,7 +90,8 @@ class Measurement:
     n_input: int
     n_output: int
     ttft: float
-    total_time: float
+    start_time: float
+    end_time: float
 
     def __str__(self):
         return textwrap.dedent(
@@ -101,7 +102,8 @@ class Measurement:
             n_input={self.n_input},
             n_output={self.n_output},
             ttft={self.ttft},
-            total_time={self.total_time}
+            start_time={self.start_time},
+            end_time={self.end_time}
         )
         """
         )
