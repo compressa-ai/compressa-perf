@@ -1,6 +1,10 @@
 # db_setup.py
 
 import sqlite3
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def create_tables(conn):
@@ -53,6 +57,6 @@ def create_tables(conn):
             );
             """
             )
-        print("Tables created successfully")
+        logger.info("Tables created successfully")
     except sqlite3.Error as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
