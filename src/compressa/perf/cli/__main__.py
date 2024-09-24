@@ -37,7 +37,8 @@ def report_experiment_args(args):
 def list_experiments_args(args):
     list_experiments(
         db=args.db,
-        show_parameters=args.show_parameters
+        show_parameters=args.show_parameters,
+        show_metrics=args.show_metrics
     )
 
 
@@ -175,6 +176,11 @@ Examples:
         "--show-parameters",
         action="store_true",
         help="Show all parameters for each experiment"
+    )
+    parser_list.add_argument(
+        "--show-metrics",
+        action="store_true",
+        help="Show metrics for each experiment"
     )
     parser_list.set_defaults(func=list_experiments_args)
 

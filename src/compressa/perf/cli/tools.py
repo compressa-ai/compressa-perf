@@ -178,6 +178,7 @@ def report_experiment(
 def list_experiments(
     db: str = DEFAULT_DB_PATH,
     show_parameters: bool = False,
+    show_metrics: bool = False,
 ):
     with sqlite3.connect(db) as conn:
         ensure_db_initialized(conn)
@@ -194,7 +195,7 @@ def list_experiments(
         if show_parameters:
             headers.extend(["Parameters"])
 
-        desciptiont_length = 20 if show_parameters else 50
+        desciptiont_length = 20 if show_parameters or show_metrics else 50
         for exp in experiments:
             row = [
                 exp.id,
@@ -205,8 +206,18 @@ def list_experiments(
 
             if show_parameters:
                 parameters = fetch_parameters_by_experiment(conn, exp.id)
-                param_str = "\n".join([f"{p.key}: {format_value(p.value, precision=2)}" for p in parameters])
+                param_str = "\n".join([
+                    f"{p.key}: {format_value(p.value, precision=2)[:10] + '...' 
+                    if len(format_value(p.value, precision=2)) > 10 
+                    else format_value(p.value, precision=2)}" 
+                    for p in parameters
+                ])
                 row.append(param_str)
+
+            if show_metrics:
+                metrics = fetch_metrics_by_experiment(conn, exp.id)
+                metrics_str = "\n".join([f"{m.metric_name.value}: {format_value(m.metric_value)}" for m in metrics])
+                row.append(metrics_str)
 
             table_data.append(row)
 

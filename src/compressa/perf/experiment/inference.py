@@ -134,6 +134,12 @@ class ExperimentRunner:
                 key="max_tokens",
                 value=str(max_tokens),
             ),
+            Parameter(
+                id=None,
+                experiment_id=experiment_id,
+                key="model_name",
+                value=self.model_name,
+            ),
         ]
         for param in parameters:
             insert_parameter(self.conn, param)
