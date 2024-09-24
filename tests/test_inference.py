@@ -4,7 +4,7 @@ import datetime
 import os
 from dotenv import load_dotenv
 
-from compressa.perf.experiment.inference import InferenceRunner
+from compressa.perf.experiment.inference import InferenceRunner, ExperimentRunner
 from compressa.perf.db import DB_NAME
 from compressa.perf.data.models import Experiment, Measurement
 from compressa.perf.db.operations import insert_experiment, fetch_measurements_by_experiment, insert_measurement
@@ -52,6 +52,36 @@ class TestData(unittest.TestCase):
                 insert_measurement(conn, measurement)
 
             measurements = fetch_measurements_by_experiment(conn, experiment.id)
+            for measurement in measurements:
+                print(measurement)
+
+    def test_experiment_runner(self):
+        with sqlite3.connect(DB_NAME) as conn:
+            experiment_runner = ExperimentRunner(
+                conn=conn,
+                openai_api_key=self.openai_api_key,
+                openai_url="https://api.qdrant.mil-team.ru/chat-2/v1",
+                model_name="Compressa-Llama-3.1-8B",
+                num_runners=5
+            )
+
+            experiment = Experiment(
+                id=None,
+                experiment_name="Test Experiment Runner",
+                experiment_date=datetime.datetime.now(),
+                description="This is a test experiment for ExperimentRunner.",
+            )
+            experiment.id = insert_experiment(conn, experiment)
+            print(experiment)
+
+            experiment_runner.run_experiment(
+                experiment_id=experiment.id,
+                prompt="Hello, world!",
+                num_tasks=1000
+            )
+
+            measurements = fetch_measurements_by_experiment(conn, experiment.id)
+            self.assertEqual(len(measurements), 1000)
             for measurement in measurements:
                 print(measurement)
 

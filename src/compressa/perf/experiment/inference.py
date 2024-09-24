@@ -9,9 +9,13 @@ import datetime
 import textwrap
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from transformers import AutoTokenizer
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-72B-Instruct")
 
 
 class InferenceRunner:
@@ -40,31 +44,39 @@ class InferenceRunner:
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
                 stream=True,
+                stream_options={
+                    'include_usage': True,
+                },
             )
         except Exception as e:
             logger.error(f"API request failed: {e}")
             return None
 
         first_token_time = None
-        total_tokens = 0
         ttft = 0
 
         for chunk in response:
             if chunk.choices[0].delta.content is not None:
-                content = chunk.choices[0].delta.content
                 if first_token_time is None:
                     first_token_time = time.time()
                     ttft = first_token_time - start_time
-                total_tokens += 1
 
         end_time = time.time()
         total_time = end_time - start_time
 
+        if not chunk.usage:
+            logger.error(f"Usage not found in response")
+            raise Exception("Usage not found in response")
+            
+        usage = chunk.usage
+        n_input = usage.prompt_tokens
+        n_output = usage.completion_tokens
+
         measurement = Measurement(
             id=None,
             experiment_id=experiment_id,
-            n_input=len(prompt),
-            n_output=total_tokens,
+            n_input=n_input,
+            n_output=n_output,
             ttft=ttft,
             total_time=total_time
         )
@@ -73,14 +85,26 @@ class InferenceRunner:
 
 
 class ExperimentRunner:
-    def __init__(self, conn: sqlite3.Connection, openai_api_key: str, openai_url: str, model_name: str, num_runners: int = 10):
+    def __init__(
+        self,
+        conn: sqlite3.Connection,
+        openai_api_key: str,
+        openai_url: str,
+        model_name: str,
+        num_runners: int = 10,
+    ):
         self.conn = conn
         self.openai_api_key = openai_api_key
         self.openai_url = openai_url
         self.model_name = model_name
         self.num_runners = num_runners
 
-    def run_experiment(self, experiment_id: int, prompt: str):
+    def run_experiment(
+        self,
+        experiment_id: int,
+        prompt: str,
+        num_tasks: int,
+    ):
         all_measurements = []
         with ThreadPoolExecutor(max_workers=self.num_runners) as executor:
             runners = [
@@ -94,7 +118,7 @@ class ExperimentRunner:
             ]
             futures = [
                 executor.submit(runners[i % self.num_runners].run_inference, experiment_id, prompt)
-                for i in range(self.num_runners)
+                for i in range(num_tasks)
             ]
             for future in as_completed(futures):
                 try:
