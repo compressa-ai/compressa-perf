@@ -55,7 +55,6 @@ compressa-perf list
 
 Output example:
 ```
-╘═══════════════════════╧══════════╛
 ❯ compressa-perf list
 
 List of Experiments:
