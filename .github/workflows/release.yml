@@ -7,6 +7,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
         with:
@@ -15,9 +17,7 @@ jobs:
           virtualenvs-in-project: false
           virtualenvs-path: ~/.cache/pypoetry/virtualenvs
           installer-parallel: true
-      - name: ls
-        run: ls -la && ls -la ..
       - name: Install dependencies
-        run: poetry install
+        run: poetry install --no-root
       - name: Run build
         run: poetry build
