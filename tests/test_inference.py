@@ -4,10 +4,10 @@ import datetime
 import os
 from dotenv import load_dotenv
 
-from compressa.perf.inference import InferenceRunner
+from compressa.perf.experiment.inference import InferenceRunner
 from compressa.perf.db import DB_NAME
-from compressa.perf.data.models import Experiment
-from compressa.perf.db.operations import insert_experiment, fetch_metrics_by_experiment
+from compressa.perf.data.models import Experiment, Measurement
+from compressa.perf.db.operations import insert_experiment, fetch_measurements_by_experiment, insert_measurement
 from compressa.perf.db.setup import create_tables
 
 
@@ -43,11 +43,18 @@ class TestData(unittest.TestCase):
             experiment.id = insert_experiment(conn, experiment)
             print(experiment)
 
-            runner.run_inference(
+            measurement = runner.run_inference(
                 experiment_id=experiment.id,
                 prompt="Hello, world!",
             )
 
-            metrics = fetch_metrics_by_experiment(conn, experiment.id)
-            for metric in metrics:
-                print(metric)
+            if measurement:
+                insert_measurement(conn, measurement)
+
+            measurements = fetch_measurements_by_experiment(conn, experiment.id)
+            for measurement in measurements:
+                print(measurement)
+
+
+if __name__ == "__main__":
+    unittest.main()
