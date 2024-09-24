@@ -43,26 +43,26 @@ def main():
 Examples:
 1. Run experiment with prompts from a file:
     ```
-    compressa-perf measure \
-        --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \
-        --openai_api_key "${OPENAI_API_KEY}" \
-        --model_name Compressa-Qwen2.5-14B-Instruct \
-        --experiment_name "File Prompts Run" \
-        --prompts_file resources/prompts.csv \
-        --num_tasks 1000 \
+    compressa-perf measure \\
+        --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \\
+        --openai_api_key "${OPENAI_API_KEY}" \\
+        --model_name Compressa-Qwen2.5-14B-Instruct \\
+        --experiment_name "File Prompts Run" \\
+        --prompts_file resources/prompts.csv \\
+        --num_tasks 1000 \\
         --num_runners 100
     ```
 2. Run experiment with generated prompts:
     ```
-    compressa-perf measure \
-        --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \
-        --openai_api_key "${OPENAI_API_KEY}" \
-        --model_name Compressa-Qwen2.5-14B-Instruct \
-        --experiment_name "Generated Prompts Run" \
-        --num_tasks 2 \
-        --num_runners 2 \
-        --generate_prompts \
-        --num_prompts 1000 \
+    compressa-perf measure \\
+        --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \\
+        --openai_api_key "${OPENAI_API_KEY}" \\
+        --model_name Compressa-Qwen2.5-14B-Instruct \\
+        --experiment_name "Generated Prompts Run" \\
+        --num_tasks 2 \\
+        --num_runners 2 \\
+        --generate_prompts \\
+        --num_prompts 1000 \\
         --prompt_length 5000
     ```
 
@@ -73,10 +73,10 @@ Examples:
 
 4. Generate a report for an experiment:
     ```
-    compressa-perf report 1
+    compressa-perf report <EXPERIMENT_ID>
     ```
         """,
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawTextHelpFormatter
     )
     subparsers = parser.add_subparsers()
 
