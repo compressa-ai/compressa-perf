@@ -38,7 +38,7 @@ class InferenceRunner:
         self,
         experiment_id: int,
         prompt: str,
-        max_tokens: int = 1000,
+        max_tokens: int,
     ):
         start_time = time.time()
 
@@ -107,6 +107,7 @@ class ExperimentRunner:
         self,
         experiment_id: int,
         num_tasks: int,
+        max_tokens: int,
     ):
         parameters = [
             Parameter(
@@ -127,6 +128,12 @@ class ExperimentRunner:
                 key="openai_url",
                 value=self.openai_url,
             ),
+            Parameter(
+                id=None,
+                experiment_id=experiment_id,
+                key="max_tokens",
+                value=str(max_tokens),
+            ),
         ]
         for param in parameters:
             insert_parameter(self.conn, param)
@@ -136,6 +143,7 @@ class ExperimentRunner:
         experiment_id: int,
         prompts: List[str],
         num_tasks: int = 100,
+        max_tokens: int = 1000,
     ):
         all_measurements = []
         with ThreadPoolExecutor(max_workers=self.num_runners) as executor:
@@ -149,7 +157,7 @@ class ExperimentRunner:
                 for _ in range(self.num_runners)
             ]
             futures = [
-                executor.submit(runners[i % self.num_runners].run_inference, experiment_id, random.choice(prompts))
+                executor.submit(runners[i % self.num_runners].run_inference, experiment_id, random.choice(prompts), max_tokens)
                 for i in range(num_tasks)
             ]
             for future in as_completed(futures):
@@ -160,6 +168,10 @@ class ExperimentRunner:
                 except Exception as e:
                     logger.error(f"Task failed: {e}")
 
-        self.store_experiment_parameters(experiment_id, num_tasks)
+        self.store_experiment_parameters(
+            experiment_id,
+            num_tasks,
+            max_tokens,
+        )
         for measurement in all_measurements:
             insert_measurement(self.conn, measurement)

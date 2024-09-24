@@ -20,7 +20,8 @@ def run_experiment_args(args):
         num_runners=args.num_runners,
         generate_prompts=args.generate_prompts,
         num_prompts=args.num_prompts,
-        prompt_length=args.prompt_length
+        prompt_length=args.prompt_length,
+        max_tokens=args.max_tokens
     )
 
 
@@ -122,6 +123,9 @@ Examples:
     )
     parser_run.add_argument(
         "--prompt_length", type=int, default=100, help="Length of each generated prompt (if --generate_prompts is used)"
+    )
+    parser_run.add_argument(
+        "--max_tokens", type=int, default=1000, help="Maximum number of tokens for the model to generate"
     )
     parser_run.set_defaults(func=run_experiment_args)
 

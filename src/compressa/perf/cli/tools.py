@@ -51,6 +51,8 @@ def generate_random_text(length):
         word = ''.join(random.choice(string.ascii_lowercase) for _ in range(word_length))
         words.append(word)
         current_length += len(word) + 1
+    
+    words.append(". Repeat this text at least 10 times. Number the repetitions.")
     return ' '.join(words)[:length]
 
 def generate_prompts_list(num_prompts, prompt_length):
@@ -73,7 +75,8 @@ def run_experiment(
     num_runners: int = 10,
     generate_prompts: bool = False,
     num_prompts: int = 100,
-    prompt_length: int = 100
+    prompt_length: int = 100,
+    max_tokens: int = 1000,
 ):
     if not openai_api_key:
         raise ValueError("OPENAI_API_KEY is not set")
@@ -85,7 +88,7 @@ def run_experiment(
             openai_api_key=openai_api_key,
             openai_url=openai_url,
             model_name=model_name,
-            num_runners=num_runners
+            num_runners=num_runners,
         )
 
         experiment = Experiment(
@@ -106,7 +109,8 @@ def run_experiment(
         experiment_runner.run_experiment(
             experiment_id=experiment.id,
             prompts=prompts,
-            num_tasks=num_tasks
+            num_tasks=num_tasks,
+            max_tokens=max_tokens,
         )
 
         # Run analysis after the experiment
