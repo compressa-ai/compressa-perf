@@ -1,7 +1,8 @@
 import sqlite3
 from typing import Dict, List
-from compressa.perf.db.operations import fetch_measurements_by_experiment
-from compressa.perf.data.models import Measurement
+from datetime import datetime
+from compressa.perf.db.operations import fetch_measurements_by_experiment, insert_metric
+from compressa.perf.data.models import Measurement, Metric, MetricName
 
 class Analyzer:
     def __init__(self, conn: sqlite3.Connection):
@@ -29,7 +30,7 @@ class Analyzer:
         total_time = experiment_end_time - experiment_start_time
         return total_tokens / total_time if total_time > 0 else 0
 
-    def compute_metrics(self, experiment_id: int) -> Dict[str, float]:
+    def compute_metrics(self, experiment_id: int):
         measurements = fetch_measurements_by_experiment(self.conn, experiment_id)
         
         if not measurements:
@@ -40,9 +41,36 @@ class Analyzer:
         average_time_per_output_token = self.compute_average_time_per_output_token(measurements)
         throughput = self.compute_throughput(measurements)
 
-        return {
-            "average_ttft": average_ttft,
-            "average_latency": average_latency,
-            "average_time_per_output_token": average_time_per_output_token,
-            "throughput": throughput,
-        }
+        metrics = [
+            Metric(
+                id=None,
+                experiment_id=experiment_id,
+                metric_name=MetricName.TTFT,
+                metric_value=average_ttft,
+                timestamp=datetime.now()
+            ),
+            Metric(
+                id=None,
+                experiment_id=experiment_id,
+                metric_name=MetricName.LATENCY,
+                metric_value=average_latency,
+                timestamp=datetime.now()
+            ),
+            Metric(
+                id=None,
+                experiment_id=experiment_id,
+                metric_name=MetricName.TPOT,
+                metric_value=average_time_per_output_token,
+                timestamp=datetime.now()
+            ),
+            Metric(
+                id=None,
+                experiment_id=experiment_id,
+                metric_name=MetricName.THROUGHPUT,
+                metric_value=throughput,
+                timestamp=datetime.now()
+            )
+        ]
+
+        for metric in metrics:
+            insert_metric(self.conn, metric)

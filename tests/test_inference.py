@@ -31,7 +31,7 @@ class TestData(unittest.TestCase):
                 conn=conn,
                 openai_api_key=self.openai_api_key,
                 openai_url="https://api.qdrant.mil-team.ru/chat-2/v1",
-                model_name="Compressa-Llama-3.1-8B",
+                model_name="Compressa-Qwen2.5-14B-Instruct",
             )
 
             experiment = Experiment(
@@ -62,7 +62,7 @@ class TestData(unittest.TestCase):
                 conn=conn,
                 openai_api_key=self.openai_api_key,
                 openai_url="https://api.qdrant.mil-team.ru/chat-2/v1",
-                model_name="Compressa-Llama-3.1-8B",
+                model_name="Compressa-Qwen2.5-14B-Instruct",
                 num_runners=5
             )
 
