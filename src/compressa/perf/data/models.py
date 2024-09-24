@@ -97,3 +97,23 @@ class Artifact:
             description={self.description}
         )
         """)
+
+
+@dataclass
+class Measurement:
+    experiment_id: int
+    n_input: int
+    n_output: int
+    ttft: float
+    total_time: float
+
+    def __str__(self):
+        return textwrap.dedent(f"""
+        Measurement(
+            experiment_id={self.experiment_id},
+            n_input={self.n_input},
+            n_output={self.n_output},
+            ttft={self.ttft},
+            total_time={self.total_time}
+        )
+        """)

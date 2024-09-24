@@ -8,6 +8,7 @@ from compressa.perf.data.models import (
     Parameter,
     Artifact,
     MetricName,
+    Measurement
 )
 import datetime
 
@@ -24,17 +25,17 @@ def insert_experiment(conn, experiment: Experiment) -> int:
     return cur.lastrowid
 
 
-def insert_parameter(conn, experiment_id: int, param_key: str, param_value: str) -> int:
+def insert_parameter(conn, parameter: Parameter) -> int:
     sql = """
     INSERT INTO Parameters (experiment_id, param_key, param_value)
     VALUES (?, ?, ?)
     """
     with conn:
-        cur = conn.execute(sql, (experiment_id, param_key, param_value))
+        cur = conn.execute(sql, (parameter.experiment_id, parameter.param_key, parameter.param_value))
     return cur.lastrowid
 
 
-def insert_metric(conn, metric: Metric) -> Metric:
+def insert_metric(conn, metric: Metric) -> int:
     sql = """
     INSERT INTO Metrics (experiment_id, metric_name, metric_value, parameters_id)
     VALUES (?, ?, ?, ?)
@@ -55,17 +56,33 @@ def insert_metric(conn, metric: Metric) -> Metric:
 
 def insert_artifact(
     conn,
-    experiment_id: int,
-    artifact_name: str,
-    artifact_path: str,
-    description: Optional[str] = None
+    artifact: Artifact
 ) -> int:
     sql = """
     INSERT INTO Artifacts (experiment_id, artifact_name, artifact_path, description)
     VALUES (?, ?, ?, ?)
     """
     with conn:
-        cur = conn.execute(sql, (experiment_id, artifact_name, artifact_path, description))
+        cur = conn.execute(sql, (artifact.experiment_id, artifact.artifact_name, artifact.artifact_path, artifact.description))
+    return cur.lastrowid
+
+
+def insert_measurement(conn, measurement: Measurement) -> int:
+    sql = """
+    INSERT INTO Measurements (experiment_id, n_input, n_output, ttft, total_time)
+    VALUES (?, ?, ?, ?, ?)
+    """
+    with conn:
+        cur = conn.execute(
+            sql,
+            (
+                measurement.experiment_id,
+                measurement.n_input,
+                measurement.n_output,
+                measurement.ttft,
+                measurement.total_time
+            )
+        )
     return cur.lastrowid
 
 
@@ -111,4 +128,21 @@ def fetch_artifacts_by_experiment(conn, experiment_id: int) -> List[Artifact]:
     cur.execute(sql, (experiment_id,))
     rows = cur.fetchall()
     return [Artifact(*row) for row in rows]
+
+
+def fetch_measurements_by_experiment(conn, experiment_id: int) -> List[Measurement]:
+    sql = "SELECT * FROM Measurements WHERE experiment_id = ?"
+    cur = conn.cursor()
+    cur.execute(sql, (experiment_id,))
+    rows = cur.fetchall()
+    measurements = []
+    for row in rows:
+        measurements.append(Measurement(
+            experiment_id=row[1],
+            n_input=row[2],
+            n_output=row[3],
+            ttft=row[4],
+            total_time=row[5]
+        ))
+    return measurements
 

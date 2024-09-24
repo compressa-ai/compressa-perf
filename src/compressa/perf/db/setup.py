@@ -44,6 +44,17 @@ def create_tables(conn):
                 FOREIGN KEY (experiment_id) REFERENCES Experiments(experiment_id)
             );
             """)
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS Measurements (
+                measurement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                experiment_id INTEGER NOT NULL,
+                n_input INTEGER NOT NULL,
+                n_output INTEGER NOT NULL,
+                ttft REAL NOT NULL,
+                total_time REAL NOT NULL,
+                FOREIGN KEY (experiment_id) REFERENCES Experiments(experiment_id)
+            );
+            """)
         print("Tables created successfully")
     except sqlite3.Error as e:
         print(f"An error occurred: {e}")
