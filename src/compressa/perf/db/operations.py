@@ -10,6 +10,7 @@ from compressa.perf.data.models import (
     Measurement,
 )
 import datetime
+from datetime import datetime
 
 
 # Insert Operations
@@ -80,11 +81,19 @@ def insert_measurement(conn, measurement: Measurement) -> int:
 
 
 def fetch_all_experiments(conn) -> List[Experiment]:
-    sql = "SELECT * FROM Experiments"
+    sql = "SELECT * FROM Experiments ORDER BY experiment_date DESC"
     cur = conn.cursor()
     cur.execute(sql)
     rows = cur.fetchall()
-    return [Experiment(*row) for row in rows]
+    return [
+        Experiment(
+            id=row[0],
+            experiment_name=row[1],
+            experiment_date=datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S"),
+            description=row[3]
+        )
+        for row in rows
+    ]
 
 
 def fetch_metrics_by_experiment(conn, experiment_id: int) -> List[Metric]:
@@ -100,7 +109,7 @@ def fetch_metrics_by_experiment(conn, experiment_id: int) -> List[Metric]:
                 experiment_id=row[1],
                 metric_name=MetricName(row[2]),
                 metric_value=row[3],
-                timestamp=datetime.datetime.strptime(row[4], "%Y-%m-%d %H:%M:%S"),
+                timestamp=datetime.strptime(row[4], "%Y-%m-%d %H:%M:%S"),
             )
         )
     return metrics
@@ -131,7 +140,7 @@ def fetch_experiment_by_id(conn, experiment_id: int) -> Optional[Experiment]:
         return Experiment(
             id=row[0],
             experiment_name=row[1],
-            experiment_date=datetime.datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S"),
+            experiment_date=datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S"),
             description=row[3]
         )
     return None

@@ -1,8 +1,18 @@
 import sqlite3
 from typing import Dict, List
 from datetime import datetime
-from compressa.perf.db.operations import fetch_measurements_by_experiment, insert_metric
-from compressa.perf.data.models import Measurement, Metric, MetricName
+import statistics
+from compressa.perf.db.operations import (
+    fetch_measurements_by_experiment,
+    insert_metric,
+    insert_parameter
+)
+from compressa.perf.data.models import (
+    Measurement,
+    Metric,
+    MetricName,
+    Parameter
+)
 
 class Analyzer:
     def __init__(self, conn: sqlite3.Connection):
@@ -30,6 +40,17 @@ class Analyzer:
         total_time = experiment_end_time - experiment_start_time
         return total_tokens / total_time if total_time > 0 else 0
 
+    def compute_input_output_stats(self, measurements: List[Measurement]) -> Dict[str, float]:
+        n_inputs = [m.n_input for m in measurements]
+        n_outputs = [m.n_output for m in measurements]
+        
+        return {
+            "avg_n_input": statistics.mean(n_inputs),
+            "std_n_input": statistics.stdev(n_inputs),
+            "avg_n_output": statistics.mean(n_outputs),
+            "std_n_output": statistics.stdev(n_outputs)
+        }
+
     def compute_metrics(self, experiment_id: int):
         measurements = fetch_measurements_by_experiment(self.conn, experiment_id)
         
@@ -40,6 +61,7 @@ class Analyzer:
         average_latency = self.compute_average_latency(measurements)
         average_time_per_output_token = self.compute_average_time_per_output_token(measurements)
         throughput = self.compute_throughput(measurements)
+        input_output_stats = self.compute_input_output_stats(measurements)
 
         metrics = [
             Metric(
@@ -74,3 +96,12 @@ class Analyzer:
 
         for metric in metrics:
             insert_metric(self.conn, metric)
+
+        for key, value in input_output_stats.items():
+            parameter = Parameter(
+                id=None,
+                experiment_id=experiment_id,
+                key=key,
+                value=str(value)
+            )
+            insert_parameter(self.conn, parameter)
