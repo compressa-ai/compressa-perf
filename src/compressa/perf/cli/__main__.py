@@ -17,62 +17,93 @@ import sys
 
 DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
 
-def run_experiment(args):
-    openai_api_key = args.openai_api_key
+
+def ensure_db_initialized(conn):
+    try:
+        # Check if the Experiments table exists
+        conn.execute("SELECT 1 FROM Experiments LIMIT 1")
+    except sqlite3.OperationalError:
+        # If the table doesn't exist, create the tables
+        print("Database not initialized. Creating tables...")
+        create_tables(conn)
+        print("Tables created successfully.")
+
+
+def run_experiment(
+    db: str = DEFAULT_DB_PATH,
+    openai_api_key: str = None,
+    openai_url: str = None,
+    model_name: str = None,
+    experiment_name: str = None,
+    description: str = None,
+    prompts_file: str = None,
+    num_tasks: int = 100,
+    num_runners: int = 10,
+):
     if not openai_api_key:
         raise ValueError("OPENAI_API_KEY is not set")
 
-    with sqlite3.connect(args.db) as conn:
+    with sqlite3.connect(db) as conn:
         create_tables(conn)
         experiment_runner = ExperimentRunner(
             conn=conn,
             openai_api_key=openai_api_key,
-            openai_url=args.openai_url,
-            model_name=args.model_name,
-            num_runners=args.num_runners
+            openai_url=openai_url,
+            model_name=model_name,
+            num_runners=num_runners
         )
 
         experiment = Experiment(
             id=None,
-            experiment_name=args.experiment_name,
+            experiment_name=experiment_name,
             experiment_date=datetime.datetime.now(),
-            description=args.description,
+            description=description,
         )
         experiment.id = insert_experiment(conn, experiment)
         print(f"Experiment created: {experiment}")
 
-        with open(args.prompts_file, 'r') as f:
+        with open(prompts_file, 'r') as f:
             prompts = [line.strip() for line in f.readlines()]
 
         experiment_runner.run_experiment(
             experiment_id=experiment.id,
             prompts=prompts,
-            num_tasks=args.num_tasks
+            num_tasks=num_tasks
         )
 
         # Run analysis after the experiment
         analyzer = Analyzer(conn)
         analyzer.compute_metrics(experiment.id)
-        metrics = fetch_metrics_by_experiment(conn, experiment.id)
-        for metric in metrics:
-            print(metric)
+        
+        # Reuse the reporting functionality
+        report_experiment(
+            experiment_id=experiment.id,
+            db=db,
+            recompute=False
+        )
 
 
-def report_experiment(args):
-    with sqlite3.connect(args.db) as conn:
+def report_experiment(
+    experiment_id: int,
+    db: str = DEFAULT_DB_PATH,
+    recompute: bool = False,
+):
+    with sqlite3.connect(db) as conn:
+        ensure_db_initialized(conn)
+
         # Check if the experiment exists
-        experiment = fetch_experiment_by_id(conn, args.experiment_id)
+        experiment = fetch_experiment_by_id(conn, experiment_id)
         if not experiment:
-            print(f"Error: Experiment with ID {args.experiment_id} not found.")
+            print(f"Error: Experiment with ID {experiment_id} not found.")
             sys.exit(1)
 
         analyzer = Analyzer(conn)
         
-        if args.recompute:
-            analyzer.compute_metrics(args.experiment_id)
+        if recompute:
+            analyzer.compute_metrics(experiment_id)
         
-        parameters = fetch_parameters_by_experiment(conn, args.experiment_id)
-        metrics = fetch_metrics_by_experiment(conn, args.experiment_id)
+        parameters = fetch_parameters_by_experiment(conn, experiment_id)
+        metrics = fetch_metrics_by_experiment(conn, experiment_id)
         
         # Print experiment details
         print(f"\nExperiment Details:")
@@ -82,7 +113,7 @@ def report_experiment(args):
         print(f"Description: {experiment.description}")
         
         # Prepare parameter table
-        param_table = [[p.name, p.value] for p in parameters]
+        param_table = [[p.key, p.value] for p in parameters]
         print("\nExperiment Parameters:")
         print(tabulate(param_table, headers=["Parameter", "Value"], tablefmt="grid"))
         
@@ -92,8 +123,12 @@ def report_experiment(args):
         print(tabulate(metrics_table, headers=["Metric", "Value"], tablefmt="grid"))
 
 
-def list_experiments(args):
-    with sqlite3.connect(args.db) as conn:
+def list_experiments(
+    db: str = DEFAULT_DB_PATH,
+):
+    with sqlite3.connect(db) as conn:
+        ensure_db_initialized(conn)
+
         experiments = fetch_all_experiments(conn)
         
         if not experiments:
@@ -112,6 +147,33 @@ def list_experiments(args):
 
         print("\nList of Experiments:")
         print(tabulate(table_data, headers=["ID", "Name", "Date", "Description"], tablefmt="grid"))
+
+
+def run_experiment_args(args):
+    run_experiment(
+        db=args.db,
+        openai_api_key=args.openai_api_key,
+        openai_url=args.openai_url,
+        model_name=args.model_name,
+        experiment_name=args.experiment_name,
+        description=args.description,
+        prompts_file=args.prompts_file,
+        num_tasks=args.num_tasks,
+        num_runners=args.num_runners
+    )
+
+
+def report_experiment_args(args):
+    report_experiment(
+        experiment_id=args.experiment_id,
+        db=args.db,
+        recompute=args.recompute
+    )
+
+
+def list_experiments_args(args):
+    list_experiments(db=args.db)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -153,7 +215,7 @@ def main():
     parser_run.add_argument(
         "--openai_api_key", type=str, required=True, help="OpenAI API key"
     )
-    parser_run.set_defaults(func=run_experiment)
+    parser_run.set_defaults(func=run_experiment_args)
 
     parser_report = subparsers.add_parser(
         "report",
@@ -173,7 +235,7 @@ def main():
         action="store_true",
         help="Recompute metrics before generating the report",
     )
-    parser_report.set_defaults(func=report_experiment)
+    parser_report.set_defaults(func=report_experiment_args)
 
     parser_list = subparsers.add_parser(
         "list",
