@@ -2,8 +2,8 @@ import time
 import logging
 import openai
 from typing import List, Dict
-from compressa.perf.data.models import Measurement
-from compressa.perf.db.operations import insert_measurement
+from compressa.perf.data.models import Measurement, Parameter
+from compressa.perf.db.operations import insert_measurement, insert_parameter
 import sqlite3
 import textwrap
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -95,12 +95,28 @@ class ExperimentRunner:
         self.model_name = model_name
         self.num_runners = num_runners
 
+    def store_experiment_parameters(
+        self,
+        experiment_id: int,
+        num_tasks: int,
+    ):
+        parameters = [
+            Parameter(experiment_id=experiment_id, name="num_workers", value=str(self.num_runners)),
+            Parameter(experiment_id=experiment_id, name="num_tasks", value=str(num_tasks)),
+            Parameter(experiment_id=experiment_id, name="model_name", value=self.model_name),
+            Parameter(experiment_id=experiment_id, name="openai_url", value=self.openai_url),
+        ]
+        for param in parameters:
+            insert_parameter(self.conn, param)
+
     def run_experiment(
         self,
         experiment_id: int,
         prompts: List[str],
         num_tasks: int = 100,
     ):
+        self.store_experiment_parameters(experiment_id, num_tasks)
+
         all_measurements = []
         with ThreadPoolExecutor(max_workers=self.num_runners) as executor:
             runners = [
@@ -124,7 +140,5 @@ class ExperimentRunner:
                 except Exception as e:
                     logger.error(f"Task failed: {e}")
 
-        # Insert all measurements into the database after all threads have finished
         for measurement in all_measurements:
             insert_measurement(self.conn, measurement)
-
