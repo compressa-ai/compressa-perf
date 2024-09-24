@@ -8,6 +8,7 @@ import sqlite3
 import datetime
 import textwrap
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import random
 
 from transformers import AutoTokenizer
 
@@ -102,8 +103,8 @@ class ExperimentRunner:
     def run_experiment(
         self,
         experiment_id: int,
-        prompt: str,
-        num_tasks: int,
+        prompts: List[str],
+        num_tasks: int = 100,
     ):
         all_measurements = []
         with ThreadPoolExecutor(max_workers=self.num_runners) as executor:
@@ -117,7 +118,7 @@ class ExperimentRunner:
                 for _ in range(self.num_runners)
             ]
             futures = [
-                executor.submit(runners[i % self.num_runners].run_inference, experiment_id, prompt)
+                executor.submit(runners[i % self.num_runners].run_inference, experiment_id, random.choice(prompts))
                 for i in range(num_tasks)
             ]
             for future in as_completed(futures):
@@ -128,6 +129,7 @@ class ExperimentRunner:
                 except Exception as e:
                     logger.error(f"Task failed: {e}")
 
+        # Insert all measurements into the database after all threads have finished
         for measurement in all_measurements:
             insert_measurement(self.conn, measurement)
 

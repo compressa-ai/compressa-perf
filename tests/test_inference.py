@@ -56,6 +56,7 @@ class TestData(unittest.TestCase):
                 print(measurement)
 
     def test_experiment_runner(self):
+        n_tasks = 1000
         with sqlite3.connect(DB_NAME) as conn:
             experiment_runner = ExperimentRunner(
                 conn=conn,
@@ -74,14 +75,15 @@ class TestData(unittest.TestCase):
             experiment.id = insert_experiment(conn, experiment)
             print(experiment)
 
+            prompts = ["Hello, world!", "How are you?", "Tell me a joke."]
             experiment_runner.run_experiment(
                 experiment_id=experiment.id,
-                prompt="Hello, world!",
-                num_tasks=1000
+                prompts=prompts,
+                num_tasks=n_tasks
             )
 
             measurements = fetch_measurements_by_experiment(conn, experiment.id)
-            self.assertEqual(len(measurements), 1000)
+            self.assertEqual(len(measurements), n_tasks)
             for measurement in measurements:
                 print(measurement)
 
