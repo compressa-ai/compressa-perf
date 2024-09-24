@@ -25,8 +25,8 @@ def create_tables(conn):
             CREATE TABLE IF NOT EXISTS Parameters (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 experiment_id INTEGER NOT NULL,
-                param_key TEXT NOT NULL,
-                param_value TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
                 FOREIGN KEY (experiment_id) REFERENCES Experiments(experiment_id)
             );
             """

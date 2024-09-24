@@ -10,6 +10,7 @@ packages = [{include = "compressa", from = "src"}]
 python = "^3.9"
 python-dotenv = "^1.0.1"
 openai = "^1.47.1"
+tabulate = "^0.9.0"
 
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.2.4"

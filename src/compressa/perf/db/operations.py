@@ -27,12 +27,12 @@ def insert_experiment(conn, experiment: Experiment) -> int:
 
 def insert_parameter(conn, parameter: Parameter) -> int:
     sql = """
-    INSERT INTO Parameters (experiment_id, param_key, param_value)
+    INSERT INTO Parameters (experiment_id, key, value)
     VALUES (?, ?, ?)
     """
     with conn:
         cur = conn.execute(
-            sql, (parameter.experiment_id, parameter.param_key, parameter.param_value)
+            sql, (parameter.experiment_id, parameter.key, parameter.value)
         )
     return cur.lastrowid
 
@@ -120,3 +120,18 @@ def fetch_measurements_by_experiment(conn, experiment_id: int) -> List[Measureme
     cur.execute(sql, (experiment_id,))
     rows = cur.fetchall()
     return [Measurement(*row) for row in rows]
+
+
+def fetch_experiment_by_id(conn, experiment_id: int) -> Optional[Experiment]:
+    sql = "SELECT * FROM Experiments WHERE id = ?"
+    cur = conn.cursor()
+    cur.execute(sql, (experiment_id,))
+    row = cur.fetchone()
+    if row:
+        return Experiment(
+            id=row[0],
+            experiment_name=row[1],
+            experiment_date=datetime.datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S"),
+            description=row[3]
+        )
+    return None

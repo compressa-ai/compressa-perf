@@ -67,8 +67,8 @@ class Metric:
 class Parameter:
     id: int
     experiment_id: int
-    param_key: str
-    param_value: str
+    key: str
+    value: str
 
     def __str__(self):
         return textwrap.dedent(
@@ -76,8 +76,8 @@ class Parameter:
         Parameter(
             id={self.id},
             experiment_id={self.experiment_id},
-            param_key={self.param_key},
-            param_value={self.param_value}
+            key={self.key},
+            value={self.value}
         )
         """
         )

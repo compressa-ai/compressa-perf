@@ -48,14 +48,14 @@ class TestStringMethods(unittest.TestCase):
             parameter1 = Parameter(
                 id=None,
                 experiment_id=experiment_id,
-                param_key="param1",
-                param_value="value1"
+                key="param1",
+                value="value1"
             )
             parameter2 = Parameter(
                 id=None,
                 experiment_id=experiment_id,
-                param_key="param2",
-                param_value="value2"
+                key="param2",
+                value="value2"
             )
             parameters_id_1 = insert_parameter(conn, parameter1)
             parameters_id_2 = insert_parameter(conn, parameter2)
