@@ -9,12 +9,10 @@ import textwrap
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import random
 
-from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-72B-Instruct")
 
 class InferenceRunner:
     def __init__(

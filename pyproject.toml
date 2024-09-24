@@ -9,6 +9,7 @@ packages = [{include = "compressa", from = "src"}]
 [tool.poetry.dependencies]
 python = "^3.12"
 python-dotenv = "^1.0.1"
+openai = "^1.47.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.2.4"
@@ -16,6 +17,9 @@ black = "^24.8.0"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+[tool.poetry.scripts]
+compressa-perf = "compressa.perf.cli.__main__:main"
 
 [build-system]
 requires = ["poetry-core"]
