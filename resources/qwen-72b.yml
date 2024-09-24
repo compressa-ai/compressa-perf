@@ -1,0 +1,96 @@
+- openai_url: https://api.qdrant.mil-team.ru/chat-1/v1/
+  model_name: Compressa-Qwen2-72B-Instruct
+  experiment_name: "Qwen2-72B Long Input / Short Output"
+  description: "Experiment using prompts from a file with 20 tasks and 10 runners"
+  prompts_file: resources/prompts.csv
+  generate_prompts: true
+  num_prompts: 100000
+  prompt_length: 12000
+  num_tasks: 50
+  num_runners: 1
+  max_tokens: 100
+
+- openai_url: https://api.qdrant.mil-team.ru/chat-1/v1/
+  model_name: Compressa-Qwen2-72B-Instruct
+  experiment_name: "Qwen2-72B Long Input / Short Output"
+  description: "Experiment using prompts from a file with 20 tasks and 10 runners"
+  prompts_file: resources/prompts.csv
+  generate_prompts: true
+  num_prompts: 100000
+  prompt_length: 12000
+  num_tasks: 50
+  num_runners: 5
+  max_tokens: 100
+
+- openai_url: https://api.qdrant.mil-team.ru/chat-1/v1/
+  model_name: Compressa-Qwen2-72B-Instruct
+  experiment_name: "Qwen2-72B Long Input / Short Output"
+  description: "Experiment using prompts from a file with 20 tasks and 10 runners"
+  prompts_file: resources/prompts.csv
+  generate_prompts: true
+  num_prompts: 100000
+  prompt_length: 12000
+  num_tasks: 50
+  num_runners: 10
+  max_tokens: 100
+
+- openai_url: https://api.qdrant.mil-team.ru/chat-1/v1/
+  model_name: Compressa-Qwen2-72B-Instruct
+  experiment_name: "Qwen2-72B Long Input / Short Output"
+  description: "Experiment using prompts from a file with 20 tasks and 10 runners"
+  prompts_file: resources/prompts.csv
+  generate_prompts: true
+  num_prompts: 100000
+  prompt_length: 12000
+  num_tasks: 50
+  num_runners: 20
+  max_tokens: 100
+
+
+- openai_url: https://api.qdrant.mil-team.ru/chat-1/v1/
+  model_name: Compressa-Qwen2-72B-Instruct
+  experiment_name: "Qwen2-72B Long Input / Short Output"
+  description: "Experiment using prompts from a file with 20 tasks and 10 runners"
+  prompts_file: resources/prompts.csv
+  generate_prompts: true
+  num_prompts: 100000
+  prompt_length: 12000
+  num_tasks: 50
+  num_runners: 1
+  max_tokens: 2000
+
+- openai_url: https://api.qdrant.mil-team.ru/chat-1/v1/
+  model_name: Compressa-Qwen2-72B-Instruct
+  experiment_name: "Qwen2-72B Long Input / Short Output"
+  description: "Experiment using prompts from a file with 20 tasks and 10 runners"
+  prompts_file: resources/prompts.csv
+  generate_prompts: true
+  num_prompts: 100000
+  prompt_length: 12000
+  num_tasks: 50
+  num_runners: 5
+  max_tokens: 2000
+
+- openai_url: https://api.qdrant.mil-team.ru/chat-1/v1/
+  model_name: Compressa-Qwen2-72B-Instruct
+  experiment_name: "Qwen2-72B Long Input / Short Output"
+  description: "Experiment using prompts from a file with 20 tasks and 10 runners"
+  prompts_file: resources/prompts.csv
+  generate_prompts: true
+  num_prompts: 100000
+  prompt_length: 12000
+  num_tasks: 50
+  num_runners: 10
+  max_tokens: 2000
+
+- openai_url: https://api.qdrant.mil-team.ru/chat-1/v1/
+  model_name: Compressa-Qwen2-72B-Instruct
+  experiment_name: "Qwen2-72B Long Input / Short Output"
+  description: "Experiment using prompts from a file with 20 tasks and 10 runners"
+  prompts_file: resources/prompts.csv
+  generate_prompts: true
+  num_prompts: 100000
+  prompt_length: 12000
+  num_tasks: 50
+  num_runners: 20
+  max_tokens: 2000

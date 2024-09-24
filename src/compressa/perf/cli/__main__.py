@@ -38,7 +38,9 @@ def list_experiments_args(args):
     list_experiments(
         db=args.db,
         show_parameters=args.show_parameters,
-        show_metrics=args.show_metrics
+        show_metrics=args.show_metrics,
+        name_filter=args.name_filter,
+        param_filter=args.param_filter,
     )
 
 
@@ -181,6 +183,16 @@ Examples:
         "--show-metrics",
         action="store_true",
         help="Show metrics for each experiment"
+    )
+    parser_list.add_argument(
+        "--name-filter",
+        type=str,
+        help="Filter experiments by substring in the name"
+    )
+    parser_list.add_argument(
+        "--param-filter",
+        type=str,
+        help="Filter experiments by parameter value (e.g., paramkey=value_substring)"
     )
     parser_list.set_defaults(func=list_experiments_args)
 

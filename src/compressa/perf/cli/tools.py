@@ -179,12 +179,24 @@ def list_experiments(
     db: str = DEFAULT_DB_PATH,
     show_parameters: bool = False,
     show_metrics: bool = False,
+    name_filter: str = None,
+    param_filter: str = None,
 ):
     with sqlite3.connect(db) as conn:
         ensure_db_initialized(conn)
 
         experiments = fetch_all_experiments(conn)
         
+        if name_filter:
+            experiments = [exp for exp in experiments if name_filter in exp.experiment_name]
+        
+        if param_filter:
+            param_key, _, param_value_substring = param_filter.partition('=')
+            experiments = [exp for exp in experiments if any(
+                p.key == param_key and param_value_substring in format_value(p.value)
+                for p in fetch_parameters_by_experiment(conn, exp.id)
+            )]
+
         if not experiments:
             print("No experiments found in the database.")
             return
