@@ -3,6 +3,7 @@ from compressa.perf.cli.tools import (
     run_experiment,
     report_experiment,
     list_experiments,
+    run_experiments_from_yaml,
     DEFAULT_DB_PATH,
 )
 
@@ -34,7 +35,18 @@ def report_experiment_args(args):
 
 
 def list_experiments_args(args):
-    list_experiments(db=args.db)
+    list_experiments(
+        db=args.db,
+        show_parameters=args.show_parameters
+    )
+
+
+def run_experiments_from_yaml_args(args):
+    run_experiments_from_yaml(
+        yaml_file=args.yaml_file,
+        db=args.db,
+        openai_api_key=args.openai_api_key
+    )
 
 
 def main():
@@ -159,10 +171,38 @@ Examples:
         default=DEFAULT_DB_PATH,
         help="Path to the SQLite database",
     )
+    parser_list.add_argument(
+        "--show-parameters",
+        action="store_true",
+        help="Show all parameters for each experiment"
+    )
     parser_list.set_defaults(func=list_experiments_args)
+
+    parser_yaml = subparsers.add_parser(
+        "measure-from-yaml",
+        help="Run experiments from a YAML configuration file",
+    )
+    parser_yaml.add_argument(
+        "yaml_file",
+        help="YAML configuration file for experiments",
+    )
+    parser_yaml.add_argument(
+        "--db",
+        type=str,
+        default=DEFAULT_DB_PATH,
+        help="Path to the SQLite database",
+    )
+    parser_yaml.add_argument(
+        "--openai_api_key",
+        type=str,
+        required=True,
+        help="OpenAI API key",
+    )
+    parser_yaml.set_defaults(func=run_experiments_from_yaml_args)
 
     args = parser.parse_args()
     args.func(args)
+
 
 if __name__ == "__main__":
     main()

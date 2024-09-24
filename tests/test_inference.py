@@ -46,6 +46,7 @@ class TestData(unittest.TestCase):
             measurement = runner.run_inference(
                 experiment_id=experiment.id,
                 prompt="Hello, world!",
+                max_tokens=100,
             )
 
             if measurement:

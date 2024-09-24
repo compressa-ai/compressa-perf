@@ -1,5 +1,6 @@
 import sqlite3
 from tabulate import tabulate
+from typing import List
 from compressa.perf.experiment.inference import ExperimentRunner
 from compressa.perf.experiment.analysis import Analyzer
 from compressa.perf.data.models import Experiment
@@ -15,6 +16,7 @@ import datetime
 import sys
 import random
 import string
+from compressa.perf.experiment.config import load_yaml_configs, ExperimentConfig
 
 DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
 
@@ -175,6 +177,7 @@ def report_experiment(
 
 def list_experiments(
     db: str = DEFAULT_DB_PATH,
+    show_parameters: bool = False,
 ):
     with sqlite3.connect(db) as conn:
         ensure_db_initialized(conn)
@@ -185,17 +188,59 @@ def list_experiments(
             print("No experiments found in the database.")
             return
 
-        table_data = [
-            [
+        table_data = []
+        headers = ["ID", "Name", "Date", "Description"]
+
+        if show_parameters:
+            headers.extend(["Parameters"])
+
+        desciptiont_length = 20 if show_parameters else 50
+        for exp in experiments:
+            row = [
                 exp.id,
                 exp.experiment_name,
                 exp.experiment_date.strftime("%Y-%m-%d %H:%M:%S") if exp.experiment_date else "N/A",
-                exp.description[:50] + "..." if exp.description and len(exp.description) > 50 else exp.description
+                exp.description[:desciptiont_length] + "..." if exp.description and len(exp.description) > desciptiont_length else exp.description
             ]
-            for exp in experiments
-        ]
+
+            if show_parameters:
+                parameters = fetch_parameters_by_experiment(conn, exp.id)
+                param_str = "\n".join([f"{p.key}: {format_value(p.value, precision=2)}" for p in parameters])
+                row.append(param_str)
+
+            table_data.append(row)
 
         print("\nList of Experiments:")
-        print(tabulate(table_data, headers=["ID", "Name", "Date", "Description"], tablefmt="grid"))
+        print(tabulate(table_data, headers=headers, tablefmt="grid"))
 
 
+
+def run_experiments_from_yaml(
+    yaml_file: str,
+    db: str = DEFAULT_DB_PATH,
+    openai_api_key: str = None,
+):
+    if not openai_api_key:
+        raise ValueError("OPENAI_API_KEY is not set")
+
+    configs = load_yaml_configs(yaml_file)
+    
+    for config in configs:
+        run_experiment(
+            db=db,
+            openai_api_key=openai_api_key,
+            openai_url=config.openai_url,
+            model_name=config.model_name,
+            experiment_name=config.experiment_name,
+            description=config.description,
+            prompts_file=config.prompts_file,
+            num_tasks=config.num_tasks,
+            num_runners=config.num_runners,
+            generate_prompts=config.generate_prompts,
+            num_prompts=config.num_prompts,
+            prompt_length=config.prompt_length,
+            max_tokens=config.max_tokens,
+        )
+    
+    # List experiments after running them
+    list_experiments(db=db)
