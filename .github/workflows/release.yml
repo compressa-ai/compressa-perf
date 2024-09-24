@@ -13,8 +13,10 @@ jobs:
           version: 1.5.1
           virtualenvs-create: true
           virtualenvs-in-project: false
-          # virtualenvs-path: ~/my-custom-path
+          virtualenvs-path: ~/.cache/pypoetry/virtualenvs
           installer-parallel: true
+      - name: ls
+        run: ls -la && ls -la ..
       - name: Install dependencies
         run: poetry install
       - name: Run build
