@@ -6,14 +6,14 @@ from compressa.perf.data.models import (
     Experiment,
     Metric,
     Parameter,
-    Artifact,
     MetricName,
-    Measurement
+    Measurement,
 )
 import datetime
 
 
 # Insert Operations
+
 
 def insert_experiment(conn, experiment: Experiment) -> int:
     sql = """
@@ -31,13 +31,15 @@ def insert_parameter(conn, parameter: Parameter) -> int:
     VALUES (?, ?, ?)
     """
     with conn:
-        cur = conn.execute(sql, (parameter.experiment_id, parameter.param_key, parameter.param_value))
+        cur = conn.execute(
+            sql, (parameter.experiment_id, parameter.param_key, parameter.param_value)
+        )
     return cur.lastrowid
 
 
 def insert_metric(conn, metric: Metric) -> int:
     sql = """
-    INSERT INTO Metrics (experiment_id, metric_name, metric_value, parameters_id)
+    INSERT INTO Metrics (experiment_id, metric_name, metric_value, timestamp)
     VALUES (?, ?, ?, ?)
     """
     with conn:
@@ -47,24 +49,11 @@ def insert_metric(conn, metric: Metric) -> int:
                 metric.experiment_id,
                 metric.metric_name.value,
                 metric.metric_value,
-                metric.parameters_id
-            )
+                metric.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            ),
         )
-        metric.metric_id = cur.lastrowid
+        metric.id = cur.lastrowid
     return metric
-
-
-def insert_artifact(
-    conn,
-    artifact: Artifact
-) -> int:
-    sql = """
-    INSERT INTO Artifacts (experiment_id, artifact_name, artifact_path, description)
-    VALUES (?, ?, ?, ?)
-    """
-    with conn:
-        cur = conn.execute(sql, (artifact.experiment_id, artifact.artifact_name, artifact.artifact_path, artifact.description))
-    return cur.lastrowid
 
 
 def insert_measurement(conn, measurement: Measurement) -> int:
@@ -80,13 +69,14 @@ def insert_measurement(conn, measurement: Measurement) -> int:
                 measurement.n_input,
                 measurement.n_output,
                 measurement.ttft,
-                measurement.total_time
-            )
+                measurement.total_time,
+            ),
         )
     return cur.lastrowid
 
 
 # Fetch Operations
+
 
 def fetch_all_experiments(conn) -> List[Experiment]:
     sql = "SELECT * FROM Experiments"
@@ -103,14 +93,15 @@ def fetch_metrics_by_experiment(conn, experiment_id: int) -> List[Metric]:
     rows = cur.fetchall()
     metrics = []
     for row in rows:
-        metrics.append(Metric(
-            metric_id=row[0],
-            experiment_id=row[1],
-            metric_name=MetricName(row[2]),
-            metric_value=row[3],
-            timestamp=datetime.datetime.strptime(row[4], '%Y-%m-%d %H:%M:%S'),
-            parameters_id=row[5]
-        ))
+        metrics.append(
+            Metric(
+                id=row[0],
+                experiment_id=row[1],
+                metric_name=MetricName(row[2]),
+                metric_value=row[3],
+                timestamp=datetime.datetime.strptime(row[4], "%Y-%m-%d %H:%M:%S"),
+            )
+        )
     return metrics
 
 
@@ -122,27 +113,9 @@ def fetch_parameters_by_experiment(conn, experiment_id: int) -> List[Parameter]:
     return [Parameter(*row) for row in rows]
 
 
-def fetch_artifacts_by_experiment(conn, experiment_id: int) -> List[Artifact]:
-    sql = "SELECT * FROM Artifacts WHERE experiment_id = ?"
-    cur = conn.cursor()
-    cur.execute(sql, (experiment_id,))
-    rows = cur.fetchall()
-    return [Artifact(*row) for row in rows]
-
-
 def fetch_measurements_by_experiment(conn, experiment_id: int) -> List[Measurement]:
     sql = "SELECT * FROM Measurements WHERE experiment_id = ?"
     cur = conn.cursor()
     cur.execute(sql, (experiment_id,))
     rows = cur.fetchall()
-    measurements = []
-    for row in rows:
-        measurements.append(Measurement(
-            experiment_id=row[1],
-            n_input=row[2],
-            n_output=row[3],
-            ttft=row[4],
-            total_time=row[5]
-        ))
-    return measurements
-
+    return [Measurement(*row) for row in rows]

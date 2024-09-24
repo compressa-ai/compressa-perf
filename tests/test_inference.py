@@ -11,7 +11,6 @@ from compressa.perf.db.operations import insert_experiment, fetch_metrics_by_exp
 from compressa.perf.db.setup import create_tables
 
 
-
 class TestData(unittest.TestCase):
     def __init__(self, methodName: str = "runTest") -> None:
         super().__init__(methodName)
@@ -36,19 +35,19 @@ class TestData(unittest.TestCase):
             )
 
             experiment = Experiment(
-                experiment_id=None,
+                id=None,
                 experiment_name="Test Experiment",
                 experiment_date=datetime.datetime.now(),
                 description="This is a test experiment.",
             )
-            experiment.experiment_id = insert_experiment(conn, experiment)
+            experiment.id = insert_experiment(conn, experiment)
             print(experiment)
 
             runner.run_inference(
-                experiment_id=experiment.experiment_id,
+                experiment_id=experiment.id,
                 prompt="Hello, world!",
             )
 
-            metrics = fetch_metrics_by_experiment(conn, experiment.experiment_id)
+            metrics = fetch_metrics_by_experiment(conn, experiment.id)
             for metric in metrics:
                 print(metric)

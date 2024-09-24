@@ -12,6 +12,7 @@ python-dotenv = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.2.4"
+black = "^24.8.0"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

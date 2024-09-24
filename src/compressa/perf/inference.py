@@ -23,33 +23,26 @@ class InferenceRunner:
     ):
         self.conn = conn
         self.model_name = model_name
-        self.client = openai.OpenAI(
-            api_key=openai_api_key,
-            base_url=openai_url
-        )
+        self.client = openai.OpenAI(api_key=openai_api_key, base_url=openai_url)
 
     def run_inference(
         self,
         experiment_id: int,
         prompt: str,
         max_tokens: int = 1000,
-        parameters_id: int = None
     ):
         start_time = time.time()
 
         try:
             response = self.client.chat.completions.create(
                 model=self.model_name,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
-                stream=True
+                stream=True,
             )
         except Exception as e:
             logger.error(f"API request failed: {e}")
             return
-
 
         metrics = []
         first_token_time = None
@@ -64,12 +57,11 @@ class InferenceRunner:
                     ttft = first_token_time - start_time
                     metrics.append(
                         Metric(
-                            metric_id=None,
+                            id=None,
                             experiment_id=experiment_id,
                             metric_name=MetricName.TTFT,
                             metric_value=ttft,
-                            parameters_id=parameters_id,
-                            timestamp=datetime.datetime.now()
+                            timestamp=datetime.datetime.now(),
                         )
                     )
                 total_tokens += 1
@@ -83,28 +75,27 @@ class InferenceRunner:
 
         metrics.append(
             Metric(
-                metric_id=None,
+                id=None,
                 experiment_id=experiment_id,
                 metric_name=MetricName.THROUGHPUT,
                 metric_value=throughput,
-                parameters_id=parameters_id,
-                timestamp=datetime.datetime.now()
+                timestamp=datetime.datetime.now(),
             )
         )
 
         metrics.append(
             Metric(
-                metric_id=None,
+                id=None,
                 experiment_id=experiment_id,
                 metric_name=MetricName.LATENCY,
                 metric_value=total_time,
-                parameters_id=parameters_id,
-                timestamp=datetime.datetime.now()
+                timestamp=datetime.datetime.now(),
             )
         )
 
         print(
-            textwrap.dedent(f"""
+            textwrap.dedent(
+                f"""
             Inference completed:
                 TTFT={ttft:.4f}s,
                 Total Time={total_time:.4f}s,
