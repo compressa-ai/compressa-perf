@@ -1,4 +1,5 @@
 import argparse
+from typing import List
 from compressa.perf.cli.tools import (
     run_experiment,
     report_experiment,
@@ -40,7 +41,7 @@ def list_experiments_args(args):
         show_parameters=args.show_parameters,
         show_metrics=args.show_metrics,
         name_filter=args.name_filter,
-        param_filter=args.param_filter,
+        param_filters=args.param_filter,
     )
 
 
@@ -192,6 +193,7 @@ Examples:
     parser_list.add_argument(
         "--param-filter",
         type=str,
+        action="append",
         help="Filter experiments by parameter value (e.g., paramkey=value_substring)"
     )
     parser_list.set_defaults(func=list_experiments_args)

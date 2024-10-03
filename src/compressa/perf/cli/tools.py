@@ -180,7 +180,7 @@ def list_experiments(
     show_parameters: bool = False,
     show_metrics: bool = False,
     name_filter: str = None,
-    param_filter: str = None,
+    param_filters: str = None,
 ):
     with sqlite3.connect(db) as conn:
         ensure_db_initialized(conn)
@@ -190,12 +190,13 @@ def list_experiments(
         if name_filter:
             experiments = [exp for exp in experiments if name_filter in exp.experiment_name]
         
-        if param_filter:
-            param_key, _, param_value_substring = param_filter.partition('=')
-            experiments = [exp for exp in experiments if any(
-                p.key == param_key and param_value_substring in format_value(p.value)
-                for p in fetch_parameters_by_experiment(conn, exp.id)
-            )]
+        if param_filters:
+            for param_filter in param_filters:
+                param_key, _, param_value_substring = param_filter.partition('=')
+                experiments = [exp for exp in experiments if any(
+                    p.key == param_key and param_value_substring in format_value(p.value)
+                    for p in fetch_parameters_by_experiment(conn, exp.id)
+                )]
 
         if not experiments:
             print("No experiments found in the database.")
@@ -219,9 +220,7 @@ def list_experiments(
             if show_parameters:
                 parameters = fetch_parameters_by_experiment(conn, exp.id)
                 param_str = "\n".join([
-                    f"{p.key}: {format_value(p.value, precision=2)[:10] + '...' 
-                    if len(format_value(p.value, precision=2)) > 10 
-                    else format_value(p.value, precision=2)}" 
+                    f"{p.key}: {format_value(p.value, precision=2)[:10] + '...' if len(format_value(p.value, precision=2)) > 10 else format_value(p.value, precision=2)}" 
                     for p in parameters
                 ])
                 row.append(param_str)
