@@ -220,6 +220,11 @@ Examples:
     )
     parser_yaml.set_defaults(func=run_experiments_from_yaml_args)
 
+    def default_function(args):
+        parser.print_help()
+
+    parser.set_defaults(func=default_function)
+
     args = parser.parse_args()
     args.func(args)
 
