@@ -34,3 +34,6 @@ env/
 .DS_Store
 Thumbs.db
 .env
+
+# Resources
+resources/
