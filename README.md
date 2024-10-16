@@ -22,9 +22,9 @@ pip install compressa-perf
 ### 1. Run experiment with prompts from a file
 
 ```bash
-compressa-perf measure \
-    --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \
-    --openai_api_key "${OPENAI_API_KEY}" \
+❯ compressa-perf measure \
+    --openai_url https://some-api-url.ru/chat-2/v1/ \
+    --api_key "${OPENAI_API_KEY}" \
     --model_name Compressa-Qwen2.5-14B-Instruct \
     --experiment_name "File Prompts Run" \
     --prompts_file resources/prompts.csv \
@@ -35,9 +35,9 @@ compressa-perf measure \
 ### 2. Run experiment with generated prompts
 
 ```bash
-compressa-perf measure \
-    --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \
-    --openai_api_key "${OPENAI_API_KEY}" \
+❯ compressa-perf measure \
+    --openai_url https://some-api-url.ru/chat-2/v1/ \
+    --api_key "${OPENAI_API_KEY}" \
     --model_name Compressa-Qwen2.5-14B-Instruct \
     --experiment_name "Generated Prompts Run" \
     --num_tasks 2 \
@@ -47,42 +47,92 @@ compressa-perf measure \
     --prompt_length 5000
 ```
 
-### 3. List all experiments
+Full parameter list can be obtained with `compressa-perf measure -h`.
+
+### 3. Run set of experiments from YAML file
+
+You can describe set of experiments in YAML file and run them on different services in one command:
 
 ```bash
-compressa-perf list
+❯ compressa-perf measure-from-yaml experiments.yaml
 ```
 
-Output example:
+Example of YAML file:
+
+```yaml
+- openai_url: https://some-api-url/v1/
+  model_name: Compressa-Qwen2-72B-Instruct
+  experiment_name: "File Prompts Run 1"
+  description: "Experiment using prompts from a file with 10 tasks and 5 runners"
+  prompts_file: resources/prompts.csv
+  num_tasks: 10
+  num_runners: 5
+  generate_prompts: false
+  num_prompts: 0
+  prompt_length: 0
+  max_tokens: 1000
+
+- openai_url: https://some-api-url/v1/
+  model_name: Compressa-Qwen2-72B-Instruct
+  experiment_name: "Qwen2-72B Long Input / Short Output"
+  description: "Experiment using prompts from a file with 20 tasks and 10 runners"
+  prompts_file: resources/prompts.csv
+  num_tasks: 20
+  num_runners: 10
+  generate_prompts: true
+  num_prompts: 10
+  prompt_length: 10000
+  max_tokens: 100
 ```
-❯ compressa-perf list
+
+### 4. List experiments
+
+You can select experiments by name, parameters or metrics (or substrings in these fields) via `compressa-perf list` command.
+
+For example:
+```
+❯ compressa-perf list \
+    --show-metrics \
+    --param-filter openai_url=chat-2 \
+    --param-filter avg_n_input=30
 
 List of Experiments:
-+------+------------------+---------------------+---------------+
-|   ID | Name             | Date                | Description   |
-+======+==================+=====================+===============+
-|    8 | File Prompts Run | 2024-09-24 07:40:01 |               |
-+------+------------------+---------------------+---------------+
-|    7 | My First Run     | 2024-09-24 07:31:31 |               |
-+------+------------------+---------------------+---------------+
-|    6 | My First Run     | 2024-09-24 07:29:18 |               |
-+------+------------------+---------------------+---------------+
-|    5 | My First Run     | 2024-09-24 07:28:39 |               |
-+------+------------------+---------------------+---------------+
-|    4 | My First Run     | 2024-09-24 07:27:36 |               |
-+------+------------------+---------------------+---------------+
-|    3 | My First Run     | 2024-09-24 07:10:39 |               |
-+------+------------------+---------------------+---------------+
-|    2 | My First Run     | 2024-09-24 07:10:06 |               |
-+------+------------------+---------------------+---------------+
-|    1 | My First Run     | 2024-09-24 07:09:48 |               |
-+------+------------------+---------------------+---------------+
++----+----------------------------------------------------------------------------+---------------------+--------+-----------------------+
+|    | ID                                                                         | Name                | Date   | Description           |
++====+============================================================================+=====================+========+=======================+
+| 25 | Compressa-Qwen2.5-14B-Instruct-Int4 Long Input / Short Output | 5 runners  | 2024-10-03 06:21:45 |        | ttft: 25.0960         |
+|    |                                                                            |                     |        | latency: 52.5916      |
+|    |                                                                            |                     |        | tpot: 0.5530          |
+|    |                                                                            |                     |        | throughput: 2891.0323 |
++----+----------------------------------------------------------------------------+---------------------+--------+-----------------------+
+| 23 | Compressa-Qwen2.5-14B-Instruct-Int4 Long Input / Short Output | 4 runners  | 2024-10-03 06:14:57 |        | ttft: 17.1862         |
+|    |                                                                            |                     |        | latency: 37.9612      |
+|    |                                                                            |                     |        | tpot: 0.3954          |
+|    |                                                                            |                     |        | throughput: 3230.8769 |
++----+----------------------------------------------------------------------------+---------------------+--------+-----------------------+
 ```
 
-### 4. Generate a report for an experiment
+Full parameter list:
+```bash
+❯ compressa-perf list -h
+usage: compressa-perf list [-h] [--db DB] [--show-parameters] [--show-metrics] [--name-filter NAME_FILTER] [--param-filter PARAM_FILTER]
+
+options:
+  -h, --help            show this help message and exit
+  --db DB               Path to the SQLite database
+  --show-parameters     Show all parameters for each experiment
+  --show-metrics        Show metrics for each experiment
+  --name-filter NAME_FILTER
+                        Filter experiments by substring in the name
+  --param-filter PARAM_FILTER
+                        Filter experiments by parameter value (e.g., paramkey=value_substring)
+```
+
+
+### 5. Generate a report for an experiment
 
 ```bash
-compressa-perf report <EXPERIMENT_ID>
+❯ compressa-perf report <EXPERIMENT_ID>
 ```
 
 Output example:
@@ -104,7 +154,7 @@ Experiment Parameters:
 ├──────────────┼───────────────────────────────────────────┤
 │    num_tasks │                                         2 │
 ├──────────────┼───────────────────────────────────────────┤
-│   openai_url │ https://api.qdrant.mil-team.ru/chat-2/v1/ │
+│   openai_url │ https://some-api-url.ru/chat-2/v1/ │
 ├──────────────┼───────────────────────────────────────────┤
 │  avg_n_input │                                        32 │
 ├──────────────┼───────────────────────────────────────────┤

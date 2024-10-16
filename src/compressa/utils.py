@@ -17,6 +17,10 @@ def stream_chat(
     messages: List[Dict[str, str]],
     **kwargs
 ) -> Generator[Optional[str], None, None]:
+
+    if api_url.endswith('/'):
+        api_url = api_url[:-1]
+    api_url = f"{api_url}/chat/completions"
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {api_key}'

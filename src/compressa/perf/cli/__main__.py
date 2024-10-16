@@ -62,7 +62,7 @@ Examples:
     ```
     compressa-perf measure \\
         --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \\
-        --openai_api_key "${OPENAI_API_KEY}" \\
+        --api_key "${OPENAI_API_KEY}" \\
         --model_name Compressa-Qwen2.5-14B-Instruct \\
         --experiment_name "File Prompts Run" \\
         --prompts_file resources/prompts.csv \\
@@ -73,7 +73,7 @@ Examples:
     ```
     compressa-perf measure \\
         --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \\
-        --openai_api_key "${OPENAI_API_KEY}" \\
+        --api_key "${OPENAI_API_KEY}" \\
         --model_name Compressa-Qwen2.5-14B-Instruct \\
         --experiment_name "Generated Prompts Run" \\
         --num_tasks 2 \\
@@ -108,7 +108,7 @@ Examples:
         help="Path to the SQLite database",
     )
     parser_run.add_argument(
-        "--openai_url", type=str, required=True, help="OpenAI API URL"
+        "--openai_url", type=str, required=True, help="OpenAI-compatible API URL"
     )
     parser_run.add_argument(
         "--model_name", type=str, required=True, help="Model name"
@@ -120,16 +120,16 @@ Examples:
         "--description", type=str, help="Description of the experiment"
     )
     parser_run.add_argument(
-        "--prompts_file", type=str, help="Path to the file containing prompts"
+        "--prompts_file", type=str, help="Path to the file containing prompts (separated by newlines)"
     )
     parser_run.add_argument(
-        "--num_tasks", type=int, default=100, help="Number of tasks to run"
+        "--num_tasks", type=int, default=100, help="Number of requests to send"
     )
     parser_run.add_argument(
         "--num_runners", type=int, default=10, help="Number of concurrent runners"
     )
     parser_run.add_argument(
-        "--openai_api_key", type=str, required=True, help="OpenAI API key"
+        "--api_key", type=str, required=True, help="API key"
     )
     parser_run.add_argument(
         "--generate_prompts", action="store_true", help="Generate random prompts instead of using a file"
@@ -213,7 +213,7 @@ Examples:
         help="Path to the SQLite database",
     )
     parser_yaml.add_argument(
-        "--openai_api_key",
+        "--api_key",
         type=str,
         required=True,
         help="OpenAI API key",
