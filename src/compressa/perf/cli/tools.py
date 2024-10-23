@@ -67,7 +67,7 @@ def generate_prompts_list(num_prompts, prompt_length):
 
 def run_experiment(
     db: str = DEFAULT_DB_PATH,
-    openai_api_key: str = None,
+    api_key: str = None,
     openai_url: str = None,
     model_name: str = None,
     experiment_name: str = None,
@@ -80,14 +80,14 @@ def run_experiment(
     prompt_length: int = 100,
     max_tokens: int = 1000,
 ):
-    if not openai_api_key:
+    if not api_key:
         raise ValueError("OPENAI_API_KEY is not set")
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
         experiment_runner = ExperimentRunner(
             conn=conn,
-            openai_api_key=openai_api_key,
+            api_key=api_key,
             openai_url=openai_url,
             model_name=model_name,
             num_runners=num_runners,
@@ -240,9 +240,9 @@ def list_experiments(
 def run_experiments_from_yaml(
     yaml_file: str,
     db: str = DEFAULT_DB_PATH,
-    openai_api_key: str = None,
+    api_key: str = None,
 ):
-    if not openai_api_key:
+    if not api_key:
         raise ValueError("OPENAI_API_KEY is not set")
 
     configs = load_yaml_configs(yaml_file)
@@ -250,7 +250,7 @@ def run_experiments_from_yaml(
     for config in configs:
         run_experiment(
             db=db,
-            openai_api_key=openai_api_key,
+            api_key=api_key,
             openai_url=config.openai_url,
             model_name=config.model_name,
             experiment_name=config.experiment_name,

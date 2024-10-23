@@ -15,8 +15,8 @@ class TestData(unittest.TestCase):
     def __init__(self, methodName: str = "runTest") -> None:
         super().__init__(methodName)
         load_dotenv()
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        if not self.openai_api_key:
+        self.api_key = os.getenv("OPENAI_API_KEY")
+        if not self.api_key:
             raise ValueError("OPENAI_API_KEY is not set")
 
     def setUp(self):
@@ -29,7 +29,7 @@ class TestData(unittest.TestCase):
         with sqlite3.connect(DB_NAME) as conn:
             runner = InferenceRunner(
                 conn=conn,
-                openai_api_key=self.openai_api_key,
+                api_key=self.api_key,
                 openai_url="https://api.qdrant.mil-team.ru/chat-2/v1",
                 model_name="Compressa-Qwen2.5-14B-Instruct",
             )
@@ -61,7 +61,7 @@ class TestData(unittest.TestCase):
         with sqlite3.connect(DB_NAME) as conn:
             experiment_runner = ExperimentRunner(
                 conn=conn,
-                openai_api_key=self.openai_api_key,
+                api_key=self.api_key,
                 openai_url="https://api.qdrant.mil-team.ru/chat-2/v1",
                 model_name="Compressa-Qwen2.5-14B-Instruct",
                 num_runners=5

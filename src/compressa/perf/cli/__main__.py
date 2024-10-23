@@ -12,7 +12,7 @@ from compressa.perf.cli.tools import (
 def run_experiment_args(args):
     run_experiment(
         db=args.db,
-        openai_api_key=args.openai_api_key,
+        api_key=args.api_key,
         openai_url=args.openai_url,
         model_name=args.model_name,
         experiment_name=args.experiment_name,
@@ -49,7 +49,7 @@ def run_experiments_from_yaml_args(args):
     run_experiments_from_yaml(
         yaml_file=args.yaml_file,
         db=args.db,
-        openai_api_key=args.openai_api_key
+        api_key=args.api_key
     )
 
 

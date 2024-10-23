@@ -26,13 +26,13 @@ class InferenceRunner:
     def __init__(
         self,
         conn: sqlite3.Connection,
-        openai_api_key: str,
+        api_key: str,
         openai_url: str,
         model_name: str,
     ):
         self.conn = conn
         self.model_name = model_name
-        self.client = openai.OpenAI(api_key=openai_api_key, base_url=openai_url)
+        self.client = openai.OpenAI(api_key=api_key, base_url=openai_url)
 
     def run_inference(
         self,
@@ -92,13 +92,13 @@ class ExperimentRunner:
     def __init__(
         self,
         conn: sqlite3.Connection,
-        openai_api_key: str,
+        api_key: str,
         openai_url: str,
         model_name: str,
         num_runners: int = 10,
     ):
         self.conn = conn
-        self.openai_api_key = openai_api_key
+        self.api_key = api_key
         self.openai_url = openai_url
         self.model_name = model_name
         self.num_runners = num_runners
@@ -156,7 +156,7 @@ class ExperimentRunner:
             runners = [
                 InferenceRunner(
                     self.conn,
-                    self.openai_api_key,
+                    self.api_key,
                     self.openai_url,
                     self.model_name,
                 )
