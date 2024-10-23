@@ -60,7 +60,7 @@ class InferenceRunner:
         ttft = 0
 
         for chunk in response:
-            if chunk.choices[0].delta.content is not None:
+            if chunk.choices and chunk.choices[0].delta.content is not None:
                 if first_token_time is None:
                     first_token_time = time.time()
                     ttft = first_token_time - start_time
