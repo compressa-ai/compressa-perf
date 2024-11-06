@@ -40,6 +40,20 @@ class Analyzer:
         total_time = experiment_end_time - experiment_start_time
         return total_tokens / total_time if total_time > 0 else 0
 
+    def compute_throughput_input_tokens(self, measurements: List[Measurement]) -> float:
+        total_input_tokens = sum(m.n_input for m in measurements)
+        experiment_start_time = min(m.start_time for m in measurements)
+        experiment_end_time = max(m.end_time for m in measurements)
+        total_time = experiment_end_time - experiment_start_time
+        return total_input_tokens / total_time if total_time > 0 else 0
+
+    def compute_throughput_output_tokens(self, measurements: List[Measurement]) -> float:
+        total_output_tokens = sum(m.n_output for m in measurements)
+        experiment_start_time = min(m.start_time for m in measurements)
+        experiment_end_time = max(m.end_time for m in measurements)
+        total_time = experiment_end_time - experiment_start_time
+        return total_output_tokens / total_time if total_time > 0 else 0
+
     def compute_input_output_stats(self, measurements: List[Measurement]) -> Dict[str, float]:
         n_inputs = [m.n_input for m in measurements]
         n_outputs = [m.n_output for m in measurements]
@@ -61,6 +75,8 @@ class Analyzer:
         average_latency = self.compute_average_latency(measurements)
         average_time_per_output_token = self.compute_average_time_per_output_token(measurements)
         throughput = self.compute_throughput(measurements)
+        throughput_input_tokens = self.compute_throughput_input_tokens(measurements)
+        throughput_output_tokens = self.compute_throughput_output_tokens(measurements)
         input_output_stats = self.compute_input_output_stats(measurements)
 
         metrics = [
@@ -90,6 +106,20 @@ class Analyzer:
                 experiment_id=experiment_id,
                 metric_name=MetricName.THROUGHPUT,
                 metric_value=throughput,
+                timestamp=datetime.now()
+            ),
+            Metric(
+                id=None,
+                experiment_id=experiment_id,
+                metric_name=MetricName.THROUGHPUT_INPUT_TOKENS,
+                metric_value=throughput_input_tokens,
+                timestamp=datetime.now()
+            ),
+            Metric(
+                id=None,
+                experiment_id=experiment_id,
+                metric_name=MetricName.THROUGHPUT_OUTPUT_TOKENS,
+                metric_value=throughput_output_tokens,
                 timestamp=datetime.now()
             )
         ]

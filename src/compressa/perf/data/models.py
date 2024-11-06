@@ -16,9 +16,13 @@ class MetricName(Enum):
     # LATENCY = (TTFT) + (TPOT) * output_length
     LATENCY = "latency"
 
-    # The number of output tokens per second an inference server
+    # The number of tokens per second an inference server
     # can generate across all users and requests.
     THROUGHPUT = "throughput"
+
+    THROUGHPUT_INPUT_TOKENS = "throughput_input_tokens"
+
+    THROUGHPUT_OUTPUT_TOKENS = "throughput_output_tokens"
 
 
 @dataclass

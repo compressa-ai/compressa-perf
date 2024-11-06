@@ -13,10 +13,10 @@ class ExperimentConfig:
     description: str
     num_tasks: int
     num_runners: int
-    generate_prompts: bool
-    num_prompts: int
-    prompt_length: int
-    max_tokens: int
+    generate_prompts: bool = False
+    num_prompts: int = None
+    prompt_length: int = None
+    max_tokens: int = None
     prompts_file: str = None
 
 def load_yaml_configs(file_path: str) -> List[ExperimentConfig]:
