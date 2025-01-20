@@ -8,6 +8,11 @@ from typing import (
     Any,
     List
 )
+import logging
+import logging.handlers
+import queue
+
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 
 
 def stream_chat(
@@ -65,3 +70,17 @@ def stream_chat(
         response.close()
         yield {'usage': usage_data}
 
+
+def get_logger(name: str) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(LOG_LEVEL)
+
+    log_queue = queue.Queue()
+
+    queue_handler = logging.handlers.QueueHandler(log_queue)
+    logger.addHandler(queue_handler)
+
+    listener = logging.handlers.QueueListener(log_queue, logging.StreamHandler())
+    listener.start()
+
+    return logger

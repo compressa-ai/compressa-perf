@@ -9,12 +9,18 @@ class MetricName(Enum):
     # Time To First Token
     TTFT = "ttft"
 
+    # The 95th percentile time to first token
+    TTFT_95 = "ttft_95"
+
     # Time Per Output Token
     TPOT = "tpot"
 
     # The overall time it takes for the model to generate the full response for a user.
     # LATENCY = (TTFT) + (TPOT) * output_length
     LATENCY = "latency"
+
+    # The 95th percentile latency
+    LATENCY_95 = "latency_95"
 
     # The number of tokens per second an inference server
     # can generate across all users and requests.
@@ -23,6 +29,10 @@ class MetricName(Enum):
     THROUGHPUT_INPUT_TOKENS = "throughput_input_tokens"
 
     THROUGHPUT_OUTPUT_TOKENS = "throughput_output_tokens"
+
+    # The number of requests per second an inference server can handle.
+    # RPS = num_tasks / (max(end_time) - min(start_time))
+    RPS = "rps"
 
 
 @dataclass

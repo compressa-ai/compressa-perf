@@ -1,6 +1,9 @@
 import sqlite3
 from tabulate import tabulate
 from typing import List
+
+import pandas as pd
+
 from compressa.perf.experiment.inference import ExperimentRunner
 from compressa.perf.experiment.analysis import Analyzer
 from compressa.perf.data.models import Experiment
@@ -17,8 +20,10 @@ import sys
 import random
 import string
 from compressa.perf.experiment.config import load_yaml_configs, ExperimentConfig
-
+from compressa.utils import get_logger
 DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
+
+logger = get_logger(__name__)
 
 
 def format_value(value, precision=4):
@@ -65,6 +70,10 @@ def generate_prompts_list(num_prompts, prompt_length):
         prompts.append(prompt)
     return prompts
 
+def read_prompts_from_file(file_path, prompt_length):
+    df = pd.read_csv(file_path, header=None)
+    return df[0].map(lambda x: x[:prompt_length]).tolist()
+
 def run_experiment(
     db: str = DEFAULT_DB_PATH,
     api_key: str = None,
@@ -105,8 +114,9 @@ def run_experiment(
         if generate_prompts:
             prompts = generate_prompts_list(num_prompts, prompt_length)
         else:
-            with open(prompts_file, 'r') as f:
-                prompts = [line.strip() for line in f.readlines()]
+            prompts = read_prompts_from_file(prompts_file, prompt_length)
+
+        logger.info(f"Num of prompts: {len(prompts)}\nNum of tasks: {num_tasks}\nNum of runners: {num_runners}\nMax tokens: {max_tokens}")
 
         experiment_runner.run_experiment(
             experiment_id=experiment.id,

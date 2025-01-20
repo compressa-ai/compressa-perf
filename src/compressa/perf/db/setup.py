@@ -1,10 +1,9 @@
 # db_setup.py
 
 import sqlite3
-import logging
+from compressa.utils import get_logger
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger(__name__)
 
 
 def create_tables(conn):

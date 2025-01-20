@@ -10,16 +10,17 @@ from compressa.perf.db.operations import (
     insert_measurement,
     insert_parameter,
 )
+from compressa.utils import get_logger
+
 import sqlite3
 from concurrent.futures import (
     ThreadPoolExecutor,
     as_completed,
 )
 import random
+from tqdm import tqdm
 
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger = get_logger(__name__)
 
 
 class InferenceRunner:
@@ -42,8 +43,13 @@ class InferenceRunner:
     ):
         start_time = time.time()
 
+        response = None
+        first_token_time = None
+        end_time = None
+        ttft = 0
+        n_chunks = 0
         try:
-            response = self.client.chat.completions.create(
+            response: openai.Stream = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
@@ -52,40 +58,47 @@ class InferenceRunner:
                     'include_usage': True,
                 },
             )
+
+            response_text = ""
+            for chunk in response:
+                if chunk.choices and chunk.choices[0].delta.content is not None:
+                    if first_token_time is None:
+                        if chunk.choices[0].delta.content == "":
+                            raise Exception("First token is empty")
+                        first_token_time = time.time()
+                        ttft = first_token_time - start_time
+                    n_chunks += 1
+                    response_text += chunk.choices[0].delta.content
+                elif first_token_time is None and chunk.choices[0].delta.content is None:
+                    raise Exception("First token not found in response")
+            end_time = time.time()
+            logger.debug(f"Prompt: {prompt}\nResponse text: {response_text}\n{'#' * 100}")
+
+            if not chunk.usage:
+                logger.error(f"Usage not found in response")
+                raise Exception("Usage not found in response")
+                
+            usage = chunk.usage
+            n_input = usage.prompt_tokens
+            n_output = usage.completion_tokens
+
+            measurement = Measurement(
+                id=None,
+                experiment_id=experiment_id,
+                n_input=n_input,
+                n_output=n_output,
+                ttft=ttft,
+                start_time=start_time,
+                end_time=end_time
+            )
+
+            return measurement
+
         except Exception as e:
-            logger.error(f"API request failed: {e}")
+            end_time = time.time() - start_time
+            logger.error(f"API request failed: {e}.\n ttft: {ttft}s, end_time: {end_time}s, n_chunks: {n_chunks} {response}")
             return None
 
-        first_token_time = None
-        ttft = 0
-
-        for chunk in response:
-            if chunk.choices and chunk.choices[0].delta.content is not None:
-                if first_token_time is None:
-                    first_token_time = time.time()
-                    ttft = first_token_time - start_time
-
-        end_time = time.time()
-
-        if not chunk.usage:
-            logger.error(f"Usage not found in response")
-            raise Exception("Usage not found in response")
-            
-        usage = chunk.usage
-        n_input = usage.prompt_tokens
-        n_output = usage.completion_tokens
-
-        measurement = Measurement(
-            id=None,
-            experiment_id=experiment_id,
-            n_input=n_input,
-            n_output=n_output,
-            ttft=ttft,
-            start_time=start_time,
-            end_time=end_time
-        )
-
-        return measurement
 
 
 class ExperimentRunner:
@@ -163,14 +176,18 @@ class ExperimentRunner:
                 for _ in range(self.num_runners)
             ]
             futures = [
-                executor.submit(runners[i % self.num_runners].run_inference, experiment_id, random.choice(prompts), max_tokens)
+                executor.submit(
+                    runners[i % self.num_runners].run_inference,
+                    experiment_id,
+                    random.choice(prompts),
+                    max_tokens
+                )
                 for i in range(num_tasks)
             ]
-            for future in as_completed(futures):
+            for future in tqdm(as_completed(futures), total=num_tasks, desc="Running experiments"):
                 try:
                     result = future.result()
-                    if result:
-                        all_measurements.append(result)
+                    all_measurements.append(result)
                 except Exception as e:
                     logger.error(f"Task failed: {e}")
 
@@ -179,5 +196,12 @@ class ExperimentRunner:
             num_tasks,
             max_tokens,
         )
+
+        count_failed = 0
         for measurement in all_measurements:
-            insert_measurement(self.conn, measurement)
+            if measurement:
+                insert_measurement(self.conn, measurement)
+            else:
+                count_failed += 1
+        print(f"Number of failed measurements: {count_failed}")
+
