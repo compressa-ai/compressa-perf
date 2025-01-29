@@ -5,6 +5,7 @@ from typing import List, Dict
 from compressa.perf.data.models import (
     Measurement,
     Parameter,
+    Status,
 )
 from compressa.perf.db.operations import (
     insert_measurement,
@@ -44,10 +45,14 @@ class InferenceRunner:
         start_time = time.time()
 
         response = None
-        first_token_time = None
-        end_time = None
+        first_token_time = -1
+        end_time = -1
         ttft = 0
         n_chunks = 0
+        status = Status.SUCCESS.value
+        error_message = None
+        n_input = -1
+        n_output = -1
         try:
             response: openai.Stream = self.client.chat.completions.create(
                 model=self.model_name,
@@ -62,43 +67,53 @@ class InferenceRunner:
             response_text = ""
             for chunk in response:
                 if chunk.choices and chunk.choices[0].delta.content is not None:
-                    if first_token_time is None:
+                    if first_token_time == -1:
                         if chunk.choices[0].delta.content == "":
                             raise Exception("First token is empty")
                         first_token_time = time.time()
                         ttft = first_token_time - start_time
                     n_chunks += 1
                     response_text += chunk.choices[0].delta.content
-                elif first_token_time is None and chunk.choices[0].delta.content is None:
+                elif first_token_time == -1 and chunk.choices[0].delta.content is None:
+                    status = Status.FAILED.value
                     raise Exception("First token not found in response")
             end_time = time.time()
             logger.debug(f"Prompt: {prompt}\nResponse text: {response_text}\n{'#' * 100}")
 
             if not chunk.usage:
-                logger.error(f"Usage not found in response")
-                raise Exception("Usage not found in response")
-                
+                if status == Status.SUCCESS.value:
+                    logger.error(f"Usage not found in response when success")
+                    raise Exception("Usage not found in response when success")
+
             usage = chunk.usage
             n_input = usage.prompt_tokens
             n_output = usage.completion_tokens
 
-            measurement = Measurement(
+            assert status == Status.SUCCESS.value
+           
+            return Measurement(
                 id=None,
                 experiment_id=experiment_id,
                 n_input=n_input,
                 n_output=n_output,
                 ttft=ttft,
                 start_time=start_time,
-                end_time=end_time
+                end_time=end_time,
+                status=Status.SUCCESS.value,
             )
-
-            return measurement
 
         except Exception as e:
             end_time = time.time() - start_time
             logger.error(f"API request failed: {e}.\n ttft: {ttft}s, end_time: {end_time}s, n_chunks: {n_chunks} {response}")
-            return None
-
+            status = Status.FAILED.value
+            return Measurement.failed(
+                experiment_id=experiment_id,
+                n_input=n_input,
+                n_output=n_output,
+                ttft=ttft,
+                start_time=start_time,
+                end_time=end_time,
+            )
 
 
 class ExperimentRunner:
@@ -197,11 +212,9 @@ class ExperimentRunner:
             max_tokens,
         )
 
-        count_failed = 0
         for measurement in all_measurements:
-            if measurement:
-                insert_measurement(self.conn, measurement)
-            else:
-                count_failed += 1
-        print(f"Number of failed measurements: {count_failed}")
+            insert_measurement(self.conn, measurement)
 
+        logger.info(
+            f"Number of failed measurements: {len([m for m in all_measurements if m.status == Status.FAILED.value])}"
+        )

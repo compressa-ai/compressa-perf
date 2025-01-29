@@ -34,6 +34,24 @@ class MetricName(Enum):
     # RPS = num_tasks / (max(end_time) - min(start_time))
     RPS = "rps"
 
+    # Top 5% latency longest latency
+    TOP_5_LATENCY = "top_5_latency"
+
+    # Longer than 60 seconds latency
+    LONGER_THAN_60_LATENCY = "longer_than_60_latency"
+
+    # Longer than 120 seconds latency
+    LONGER_THAN_120_LATENCY = "longer_than_120_latency"
+
+    # Longer than 180 seconds latency
+    LONGER_THAN_180_LATENCY = "longer_than_180_latency"
+
+    # Failed requests total
+    FAILED_REQUESTS = "failed_requests"
+
+    # Failed requests per hour
+    FAILED_REQUESTS_PER_HOUR = "failed_requests_per_hour"
+
 
 @dataclass
 class Experiment:
@@ -97,6 +115,10 @@ class Parameter:
         )
 
 
+class Status(Enum):
+    SUCCESS = "success"
+    FAILED = "failed"
+
 @dataclass
 class Measurement:
     id: int
@@ -106,6 +128,7 @@ class Measurement:
     ttft: float
     start_time: float
     end_time: float
+    status: str = Status.SUCCESS.value
 
     def __str__(self):
         return textwrap.dedent(
@@ -117,7 +140,29 @@ class Measurement:
             n_output={self.n_output},
             ttft={self.ttft},
             start_time={self.start_time},
-            end_time={self.end_time}
+            end_time={self.end_time},
+            status={self.status}
         )
         """
+        )
+
+    @classmethod
+    def failed(
+        cls,
+        experiment_id: int,
+        n_input: int,
+        n_output: int,
+        ttft: float,
+        start_time: float,
+        end_time: float,
+    ):
+        return cls(
+            id=None,
+            experiment_id=experiment_id,
+            n_input=n_input,
+            n_output=n_output,
+            ttft=ttft,
+            start_time=start_time,
+            end_time=end_time,
+            status=Status.FAILED.value,
         )

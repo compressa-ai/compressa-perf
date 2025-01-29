@@ -19,8 +19,11 @@ import datetime
 import sys
 import random
 import string
-from compressa.perf.experiment.config import load_yaml_configs, ExperimentConfig
+from compressa.perf.experiment.config import (
+    load_yaml_configs,
+)
 from compressa.utils import get_logger
+
 DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
 
 logger = get_logger(__name__)

@@ -52,6 +52,7 @@ def create_tables(conn):
                 ttft REAL NOT NULL,
                 start_time REAL NOT NULL,
                 end_time REAL NOT NULL,
+                status TEXT NOT NULL,
                 FOREIGN KEY (experiment_id) REFERENCES Experiments(experiment_id)
             );
             """

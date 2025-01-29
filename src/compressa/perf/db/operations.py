@@ -1,6 +1,5 @@
 # db_operations.py
 
-import sqlite3
 from typing import List, Optional
 from compressa.perf.data.models import (
     Experiment,
@@ -59,8 +58,8 @@ def insert_metric(conn, metric: Metric) -> int:
 
 def insert_measurement(conn, measurement: Measurement) -> int:
     sql = """
-    INSERT INTO Measurements (experiment_id, n_input, n_output, ttft, start_time, end_time)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO Measurements (experiment_id, n_input, n_output, ttft, start_time, end_time, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     """
     with conn:
         cur = conn.execute(
@@ -72,6 +71,7 @@ def insert_measurement(conn, measurement: Measurement) -> int:
                 measurement.ttft,
                 measurement.start_time,
                 measurement.end_time,
+                measurement.status,
             ),
         )
     return cur.lastrowid

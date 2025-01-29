@@ -22,7 +22,8 @@ from compressa.perf.data.models import (
     Metric,
     MetricName,
     Parameter,
-    Measurement
+    Measurement,
+    Status,
 )
 
 
@@ -68,6 +69,7 @@ class TestStringMethods(unittest.TestCase):
                 ttft=0.123,
                 start_time=time.time(),
                 end_time=time.time() + 0.123,
+                status=Status.SUCCESS.value
             )
 
             metric = Metric(
@@ -104,6 +106,7 @@ class TestStringMethods(unittest.TestCase):
                 ttft=0.456,
                 start_time=time.time(),
                 end_time=time.time() + 0.456,
+                status=Status.SUCCESS.value
             )
             measurement_id = insert_measurement(conn, measurement)
             measurements = fetch_measurements_by_experiment(conn, experiment_id)
@@ -112,6 +115,7 @@ class TestStringMethods(unittest.TestCase):
             self.assertEqual(measurements[0].n_input, 200)
             self.assertEqual(measurements[0].n_output, 150)
             self.assertEqual(measurements[0].ttft, 0.456)
+            self.assertEqual(measurements[0].status, Status.SUCCESS.value)
 
 
 if __name__ == '__main__':
