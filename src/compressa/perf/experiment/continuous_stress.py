@@ -10,7 +10,13 @@ from datetime import datetime
 
 from compressa.perf.experiment.inference import InferenceRunner
 from compressa.perf.experiment.analysis import Analyzer
-from compressa.perf.data.models import Measurement, Metric, Parameter
+from compressa.perf.data.models import (
+    Measurement,
+    Metric,
+    Parameter,
+    Status,
+    MetricName,
+)
 from compressa.perf.db.operations import insert_measurement, insert_parameter, insert_metric
 from compressa.utils import get_logger
 
@@ -34,7 +40,7 @@ class ContinuousStressTestRunner:
         prompts: List[str],
         num_runners: int,
         max_tokens: int,
-        report_freq_min: int,
+        report_freq_min: float,
     ):
         self.db_path = db_path
         self.api_key = api_key
@@ -165,7 +171,7 @@ class ContinuousStressTestRunner:
                     ttft=row[4],
                     start_time=row[5],
                     end_time=row[6],
-                    status=row[7],
+                    status=Status(row[7]),
                 )
             )
 
@@ -201,10 +207,10 @@ class ContinuousStressTestRunner:
             )
             insert_parameter(param)
 
-        avg_ttft = metrics_dict.get("ttft", 0.0)
-        avg_lat = metrics_dict.get("latency", 0.0)
-        rps = metrics_dict.get("rps", 0.0)
-        fails = metrics_dict.get("failed_requests", 0.0)
+        avg_ttft = metrics_dict.get(MetricName.TTFT.value, 0.0)
+        avg_lat = metrics_dict.get(MetricName.LATENCY.value, 0.0)
+        rps = metrics_dict.get(MetricName.RPS.value, 0.0)
+        fails = metrics_dict.get(MetricName.FAILED_REQUESTS.value, 0.0)
         logger.info(f"[Window {window_index}] TTFT={avg_ttft:.3f}s, LAT={avg_lat:.3f}s, RPS={rps:.3f}, FAILS={fails}")
 
     def _store_continuous_params(self):

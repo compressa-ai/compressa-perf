@@ -10,10 +10,16 @@ from compressa.perf.cli.tools import (
     run_continuous_stress_test,
     DEFAULT_DB_PATH,
 )
-from compressa.perf.db.setup import stop_db_writer
+from compressa.perf.db.setup import (
+    stop_db_writer,
+    get_db_writer,
+)
+
 
 def handle_stop_signals(signum, frame):
     print(f"Received signal {signum}, stopping DB writer...")
+    db_writer = get_db_writer()
+    db_writer.wait_for_write()
     stop_db_writer()
     sys.exit(0)
 
@@ -290,7 +296,7 @@ Examples:
         "--max_tokens", type=int, default=1000, help="Maximum tokens for generation"
     )
     parser_stress.add_argument(
-        "--report_freq_min", type=int, default=1, help="Frequency (minutes) to compute windowed metrics"
+        "--report_freq_min", type=float, default=1, help="Frequency (minutes) to compute windowed metrics"
     )
 
     parser_stress.set_defaults(func=run_continuous_stress_test_args)

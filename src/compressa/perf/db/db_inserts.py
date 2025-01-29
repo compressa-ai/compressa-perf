@@ -38,7 +38,7 @@ def direct_insert_metric(conn: sqlite3.Connection, metric: Metric) -> int:
             sql,
             (
                 metric.experiment_id,
-                metric.metric_name.value,
+                metric.metric_name,
                 metric.metric_value,
                 metric.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             ),

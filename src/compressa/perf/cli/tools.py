@@ -19,6 +19,7 @@ from compressa.perf.db.setup import (
     create_tables,
     start_db_writer,
     stop_db_writer,
+    get_db_writer,
 )
 import datetime
 import sys
@@ -106,6 +107,7 @@ def run_experiment(
     with sqlite3.connect(db) as conn:
         create_tables(conn)
         start_db_writer(db)
+        db_writer = get_db_writer()
 
         experiment_runner = ExperimentRunner(
             api_key=api_key,
@@ -137,11 +139,11 @@ def run_experiment(
             max_tokens=max_tokens,
         )
 
-        # Run analysis after the experiment
+        db_writer.wait_for_write()
         analyzer = Analyzer(conn)
         analyzer.compute_metrics(experiment.id)
+        db_writer.wait_for_write()
         
-        # Reuse the reporting functionality
         report_experiment(
             experiment_id=experiment.id,
             db=db,
@@ -157,7 +159,9 @@ def report_experiment(
 ):
     with sqlite3.connect(db) as conn:
         ensure_db_initialized(conn)
-
+        start_db_writer(db)
+        db_writer = get_db_writer()
+        
         experiment = fetch_experiment_by_id(conn, experiment_id)
         if not experiment:
             print(f"Error: Experiment with ID {experiment_id} not found.")
@@ -197,6 +201,8 @@ def report_experiment(
             tablefmt="fancy_grid", 
             numalign="decimal",
         ))
+        db_writer.wait_for_write()
+        stop_db_writer()
 
 
 def list_experiments(
@@ -251,7 +257,7 @@ def list_experiments(
 
             if show_metrics:
                 metrics = fetch_metrics_by_experiment(conn, exp.id)
-                metrics_str = "\n".join([f"{m.metric_name.value}: {format_value(m.metric_value)}" for m in metrics])
+                metrics_str = "\n".join([f"{m.metric_name}: {format_value(m.metric_value)}" for m in metrics])
                 row.append(metrics_str)
 
             table_data.append(row)
@@ -305,7 +311,7 @@ def run_continuous_stress_test(
     num_prompts: int,
     prompt_length: int,
     max_tokens: int,
-    report_freq_min: int,
+    report_freq_min: float,
 ):
     """
     Creates an Experiment, loads or generates prompts, and starts
@@ -317,7 +323,7 @@ def run_continuous_stress_test(
     with sqlite3.connect(db) as conn:
         create_tables(conn)
         start_db_writer(db)
-
+        db_writer = get_db_writer()
         experiment = Experiment(
             id=None,
             experiment_name=experiment_name,
@@ -349,5 +355,5 @@ def run_continuous_stress_test(
         )
         runner.start_test()
 
+        db_writer.wait_for_write()
         stop_db_writer()
-
