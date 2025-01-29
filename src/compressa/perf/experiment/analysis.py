@@ -26,7 +26,7 @@ class Analyzer:
         """Average time to first token for successful requests."""
         measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
         if not measurements:
-            logger.warning("No successful measurements found")
+            logger.warning("No successful measurements found for TTFT.")
             return 0.0
         
         total_ttft = sum(m.ttft for m in measurements)
@@ -36,7 +36,7 @@ class Analyzer:
         """95th percentile time to first token for successful requests."""
         measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
         if not measurements:
-            logger.warning("No successful measurements found")
+            logger.warning("No successful measurements found for 95th percentile TTFT.")
             return 0.0
         ttfts = sorted(m.ttft for m in measurements)
         n = len(ttfts)
@@ -47,11 +47,33 @@ class Analyzer:
             return ttfts[lower]
         return ttfts[lower] + (ttfts[upper] - ttfts[lower]) * (index - lower)
 
+    def compute_top_5_ttft(self, measurements: List[Measurement]) -> float:
+        """
+        Average TTFT of the slowest 5% of successful requests.
+        If fewer than 20 successful measurements exist, the top 5%
+        may be 1 request or none if the slice is empty—handle that edge.
+        """
+        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        if not measurements:
+            logger.warning("No successful measurements found for top 5% TTFT.")
+            return 0.0
+        
+        ttfts = sorted(m.ttft for m in measurements)
+        n = len(ttfts)
+        cutoff_index = int(0.95 * n)  # start of the top 5% slice
+        if cutoff_index >= n:
+            # Edge case: if n=1, .95*(n-1) might be 0. 
+            # but usually you'd see at least 1 item anyway
+            return 0.0
+        
+        top_5_ttfts = ttfts[cutoff_index:]
+        return sum(top_5_ttfts) / len(top_5_ttfts)
+
     def compute_average_latency(self, measurements: List[Measurement]) -> float:
         """Average latency for successful requests."""
         measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
         if not measurements:
-            logger.warning("No successful measurements found")
+            logger.warning("No successful measurements found for average latency.")
             return 0.0
         total_latency = sum((m.end_time - m.start_time) for m in measurements)
         return total_latency / len(measurements)
@@ -60,7 +82,7 @@ class Analyzer:
         """95th percentile latency for successful requests."""
         measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
         if not measurements:
-            logger.warning("No successful measurements found")
+            logger.warning("No successful measurements found for 95th percentile latency.")
             return 0.0
         latencies = sorted((m.end_time - m.start_time) for m in measurements)
         n = len(latencies)
@@ -77,11 +99,13 @@ class Analyzer:
         """
         measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
         if not measurements:
-            logger.warning("No successful measurements found")
+            logger.warning("No successful measurements found for top 5% latency.")
             return 0.0
         latencies = sorted((m.end_time - m.start_time) for m in measurements)
         n = len(latencies)
         cutoff_index = int(0.95 * n)
+        if cutoff_index >= n:
+            return 0.0
         top_5_latencies = latencies[cutoff_index:]
         return sum(top_5_latencies) / len(top_5_latencies)
 
@@ -89,7 +113,7 @@ class Analyzer:
         """Average total latency per output token for successful requests."""
         measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
         if not measurements:
-            logger.warning("No successful measurements found")
+            logger.warning("No successful measurements found for time per output token.")
             return 0.0
         total_latency = sum((m.end_time - m.start_time) for m in measurements)
         total_output_tokens = sum(m.n_output for m in measurements)
@@ -102,7 +126,7 @@ class Analyzer:
         """
         measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
         if not measurements:
-            logger.warning("No successful measurements found")
+            logger.warning("No successful measurements found for throughput.")
             return 0.0
         total_input_tokens = sum(m.n_input for m in measurements)
         total_output_tokens = sum(m.n_output for m in measurements)
@@ -116,7 +140,7 @@ class Analyzer:
         """Input tokens per second for successful requests."""
         measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
         if not measurements:
-            logger.warning("No successful measurements found")
+            logger.warning("No successful measurements found for throughput input tokens.")
             return 0.0
         total_input_tokens = sum(m.n_input for m in measurements)
         experiment_start_time = min(m.start_time for m in measurements)
@@ -128,7 +152,7 @@ class Analyzer:
         """Output tokens per second for successful requests."""
         measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
         if not measurements:
-            logger.warning("No successful measurements found")
+            logger.warning("No successful measurements found for throughput output tokens.")
             return 0.0
         total_output_tokens = sum(m.n_output for m in measurements)
         experiment_start_time = min(m.start_time for m in measurements)
@@ -142,7 +166,7 @@ class Analyzer:
         """
         measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
         if not measurements:
-            logger.warning("No successful measurements found")
+            logger.warning("No successful measurements found for input/output stats.")
             return {
                 "avg_n_input": 0.0,
                 "std_n_input": 0.0,
@@ -166,7 +190,7 @@ class Analyzer:
         """
         measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
         if not measurements:
-            logger.warning("No successful measurements found")
+            logger.warning("No successful measurements found for RPS.")
             return 0.0
         experiment_start_time = min(m.start_time for m in measurements)
         experiment_end_time = max(m.end_time for m in measurements)
@@ -226,10 +250,13 @@ class Analyzer:
             raise ValueError(f"No measurements found for experiment_id {experiment_id}")
 
         average_ttft = self.compute_average_ttft(measurements)
-        average_latency = self.compute_average_latency(measurements)
         q95_ttft = self.compute_q95_ttft(measurements)
+        top_5_ttft = self.compute_top_5_ttft(measurements)
+
+        average_latency = self.compute_average_latency(measurements)
         q95_latency = self.compute_q95_latency(measurements)
         top_5_latency = self.compute_top_5_latency(measurements)
+
         average_time_per_output_token = self.compute_average_time_per_output_token(measurements)
         throughput = self.compute_throughput(measurements)
         throughput_input_tokens = self.compute_throughput_input_tokens(measurements)
@@ -256,6 +283,13 @@ class Analyzer:
                 experiment_id=experiment_id,
                 metric_name=MetricName.TTFT_95,
                 metric_value=q95_ttft,
+                timestamp=datetime.now()
+            ),
+            Metric(
+                id=None,
+                experiment_id=experiment_id,
+                metric_name=MetricName.TOP_5_TTFT,
+                metric_value=top_5_ttft,
                 timestamp=datetime.now()
             ),
             Metric(
@@ -314,7 +348,6 @@ class Analyzer:
                 metric_value=rps,
                 timestamp=datetime.now()
             ),
-
             Metric(
                 id=None,
                 experiment_id=experiment_id,

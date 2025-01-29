@@ -13,6 +13,7 @@ from compressa.perf.db.operations import (
     fetch_parameters_by_experiment,
     fetch_experiment_by_id,
     fetch_all_experiments,
+    clear_metrics_by_experiment,
 )
 from compressa.perf.db.setup import create_tables
 import datetime
@@ -156,6 +157,7 @@ def report_experiment(
         analyzer = Analyzer(conn)
         
         if recompute:
+            clear_metrics_by_experiment(conn, experiment_id)
             analyzer.compute_metrics(experiment_id)
         
         parameters = fetch_parameters_by_experiment(conn, experiment_id)

@@ -114,6 +114,10 @@ def fetch_metrics_by_experiment(conn, experiment_id: int) -> List[Metric]:
         )
     return metrics
 
+def clear_metrics_by_experiment(conn, experiment_id: int) -> None:
+    sql = "DELETE FROM Metrics WHERE experiment_id = ?"
+    with conn:
+        conn.execute(sql, (experiment_id,))
 
 def fetch_parameters_by_experiment(conn, experiment_id: int) -> List[Parameter]:
     sql = "SELECT * FROM Parameters WHERE experiment_id = ?"

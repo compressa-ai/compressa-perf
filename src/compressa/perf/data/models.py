@@ -36,6 +36,9 @@ class MetricName(Enum):
 
     # Top 5% latency longest latency
     TOP_5_LATENCY = "top_5_latency"
+    
+    # Top 5% TTFT
+    TOP_5_TTFT = "top_5_ttft"
 
     # Longer than 60 seconds latency
     LONGER_THAN_60_LATENCY = "longer_than_60_latency"
