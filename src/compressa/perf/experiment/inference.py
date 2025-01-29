@@ -49,7 +49,7 @@ class InferenceRunner:
         end_time = -1
         ttft = 0
         n_chunks = 0
-        status = Status.SUCCESS.value
+        status = Status.SUCCESS
         error_message = None
         n_input = -1
         n_output = -1
@@ -75,13 +75,13 @@ class InferenceRunner:
                     n_chunks += 1
                     response_text += chunk.choices[0].delta.content
                 elif first_token_time == -1 and chunk.choices[0].delta.content is None:
-                    status = Status.FAILED.value
+                    status = Status.FAILED
                     raise Exception("First token not found in response")
             end_time = time.time()
             logger.debug(f"Prompt: {prompt}\nResponse text: {response_text}\n{'#' * 100}")
 
             if not chunk.usage:
-                if status == Status.SUCCESS.value:
+                if status == Status.SUCCESS:
                     logger.error(f"Usage not found in response when success")
                     raise Exception("Usage not found in response when success")
 
@@ -89,7 +89,7 @@ class InferenceRunner:
             n_input = usage.prompt_tokens
             n_output = usage.completion_tokens
 
-            assert status == Status.SUCCESS.value
+            assert status == Status.SUCCESS
            
             return Measurement(
                 id=None,
@@ -99,13 +99,13 @@ class InferenceRunner:
                 ttft=ttft,
                 start_time=start_time,
                 end_time=end_time,
-                status=Status.SUCCESS.value,
+                status=Status.SUCCESS,
             )
 
         except Exception as e:
             end_time = time.time() - start_time
             logger.error(f"API request failed: {e}.\n ttft: {ttft}s, end_time: {end_time}s, n_chunks: {n_chunks} {response}")
-            status = Status.FAILED.value
+            status = Status.FAILED
             return Measurement.failed(
                 experiment_id=experiment_id,
                 n_input=n_input,
@@ -216,5 +216,5 @@ class ExperimentRunner:
             insert_measurement(self.conn, measurement)
 
         logger.info(
-            f"Number of failed measurements: {len([m for m in all_measurements if m.status == Status.FAILED.value])}"
+            f"Number of failed measurements: {len([m for m in all_measurements if m.status == Status.FAILED])}"
         )

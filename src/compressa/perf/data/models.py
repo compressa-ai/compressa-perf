@@ -131,7 +131,7 @@ class Measurement:
     ttft: float
     start_time: float
     end_time: float
-    status: str = Status.SUCCESS.value
+    status: Status = Status.SUCCESS
 
     def __str__(self):
         return textwrap.dedent(

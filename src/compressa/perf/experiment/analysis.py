@@ -24,7 +24,7 @@ class Analyzer:
 
     def compute_average_ttft(self, measurements: List[Measurement]) -> float:
         """Average time to first token for successful requests."""
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for TTFT.")
             return 0.0
@@ -34,7 +34,7 @@ class Analyzer:
 
     def compute_q95_ttft(self, measurements: List[Measurement]) -> float:
         """95th percentile time to first token for successful requests."""
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for 95th percentile TTFT.")
             return 0.0
@@ -53,7 +53,7 @@ class Analyzer:
         If fewer than 20 successful measurements exist, the top 5%
         may be 1 request or none if the slice is empty—handle that edge.
         """
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for top 5% TTFT.")
             return 0.0
@@ -71,7 +71,7 @@ class Analyzer:
 
     def compute_average_latency(self, measurements: List[Measurement]) -> float:
         """Average latency for successful requests."""
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for average latency.")
             return 0.0
@@ -80,7 +80,7 @@ class Analyzer:
 
     def compute_q95_latency(self, measurements: List[Measurement]) -> float:
         """95th percentile latency for successful requests."""
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for 95th percentile latency.")
             return 0.0
@@ -97,7 +97,7 @@ class Analyzer:
         """
         Average latency of the slowest 5% of successful requests.
         """
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for top 5% latency.")
             return 0.0
@@ -111,7 +111,7 @@ class Analyzer:
 
     def compute_average_time_per_output_token(self, measurements: List[Measurement]) -> float:
         """Average total latency per output token for successful requests."""
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for time per output token.")
             return 0.0
@@ -124,7 +124,7 @@ class Analyzer:
         Tokens (input + output) per second across all successful requests,
         measured from the earliest start_time to the latest end_time.
         """
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for throughput.")
             return 0.0
@@ -138,7 +138,7 @@ class Analyzer:
 
     def compute_throughput_input_tokens(self, measurements: List[Measurement]) -> float:
         """Input tokens per second for successful requests."""
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for throughput input tokens.")
             return 0.0
@@ -150,7 +150,7 @@ class Analyzer:
 
     def compute_throughput_output_tokens(self, measurements: List[Measurement]) -> float:
         """Output tokens per second for successful requests."""
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for throughput output tokens.")
             return 0.0
@@ -164,7 +164,7 @@ class Analyzer:
         """
         Basic stats on the number of input/output tokens for successful requests.
         """
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for input/output stats.")
             return {
@@ -188,7 +188,7 @@ class Analyzer:
         Requests per second (RPS) for successful requests:
         number of successful requests / (max(end_time) - min(start_time)).
         """
-        measurements = [m for m in measurements if m.status == Status.SUCCESS.value]
+        measurements = [m for m in measurements if m.status == Status.SUCCESS]
         if not measurements:
             logger.warning("No successful measurements found for RPS.")
             return 0.0
@@ -201,7 +201,7 @@ class Analyzer:
         """
         Count how many successful requests took more than 60 seconds.
         """
-        successes = [m for m in measurements if m.status == Status.SUCCESS.value]
+        successes = [m for m in measurements if m.status == Status.SUCCESS]
         if not successes:
             return 0
         return sum(1 for m in successes if (m.end_time - m.start_time) > 60)
@@ -210,21 +210,21 @@ class Analyzer:
         """
         Count how many successful requests took more than 120 seconds.
         """
-        successes = [m for m in measurements if m.status == Status.SUCCESS.value]
+        successes = [m for m in measurements if m.status == Status.SUCCESS]
         return sum(1 for m in successes if (m.end_time - m.start_time) > 120)
 
     def compute_longer_than_180_latency(self, measurements: List[Measurement]) -> int:
         """
         Count how many successful requests took more than 180 seconds.
         """
-        successes = [m for m in measurements if m.status == Status.SUCCESS.value]
+        successes = [m for m in measurements if m.status == Status.SUCCESS]
         return sum(1 for m in successes if (m.end_time - m.start_time) > 180)
 
     def compute_failed_requests(self, measurements: List[Measurement]) -> int:
         """
         Count total failed requests (status == FAILURE).
         """
-        return sum(1 for m in measurements if m.status == Status.FAILED.value)
+        return sum(1 for m in measurements if m.status == Status.FAILED)
 
     def compute_failed_requests_per_hour(self, measurements: List[Measurement]) -> float:
         """
@@ -233,7 +233,7 @@ class Analyzer:
         if not measurements:
             return 0.0
 
-        failed_count = sum(1 for m in measurements if m.status == Status.FAILED.value)
+        failed_count = sum(1 for m in measurements if m.status == Status.FAILED)
         experiment_start_time = min(m.start_time for m in measurements)
         experiment_end_time = max(m.end_time for m in measurements)
         total_time_seconds = experiment_end_time - experiment_start_time

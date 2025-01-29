@@ -7,6 +7,7 @@ from compressa.perf.data.models import (
     Parameter,
     MetricName,
     Measurement,
+    Status,
 )
 import datetime
 from datetime import datetime
@@ -71,7 +72,7 @@ def insert_measurement(conn, measurement: Measurement) -> int:
                 measurement.ttft,
                 measurement.start_time,
                 measurement.end_time,
-                measurement.status,
+                measurement.status.value,
             ),
         )
     return cur.lastrowid
@@ -132,7 +133,19 @@ def fetch_measurements_by_experiment(conn, experiment_id: int) -> List[Measureme
     cur = conn.cursor()
     cur.execute(sql, (experiment_id,))
     rows = cur.fetchall()
-    return [Measurement(*row) for row in rows]
+    measurements = []
+    for row in rows:
+        measurements.append(Measurement(
+            id=row[0],
+            experiment_id=row[1],
+            n_input=row[2],
+            n_output=row[3],
+            ttft=row[4],
+            start_time=row[5],
+            end_time=row[6],
+            status=Status(row[7]),
+        ))
+    return measurements
 
 
 def fetch_experiment_by_id(conn, experiment_id: int) -> Optional[Experiment]:
