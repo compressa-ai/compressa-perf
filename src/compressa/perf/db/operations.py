@@ -1,6 +1,8 @@
-# db_operations.py
-
 from typing import List, Optional
+import datetime
+from datetime import datetime
+
+from compressa.perf.db.setup import get_db_writer
 from compressa.perf.data.models import (
     Experiment,
     Metric,
@@ -9,21 +11,25 @@ from compressa.perf.data.models import (
     Measurement,
     Status,
 )
-import datetime
-from datetime import datetime
 
 
-# Insert Operations
+def insert_parameter(parameter: Parameter) -> int:
+    db_writer = get_db_writer()
+    if db_writer is None:
+        raise ValueError("DB writer is not initialized")
+    
+    db_writer.push_parameter(parameter)
+    return -1
 
 
-def insert_experiment(conn, experiment: Experiment) -> int:
-    sql = """
-    INSERT INTO Experiments (experiment_name, description)
-    VALUES (?, ?)
-    """
-    with conn:
-        cur = conn.execute(sql, (experiment.experiment_name, experiment.description))
-    return cur.lastrowid
+
+def insert_metric(metric: Metric) -> int:
+    db_writer = get_db_writer()
+    if db_writer is None:
+        raise ValueError("DB writer is not initialized")
+    
+    db_writer.push_metric(metric)
+    return -1
 
 
 def insert_parameter(conn, parameter: Parameter) -> int:

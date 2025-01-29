@@ -7,53 +7,53 @@ import textwrap
 
 class MetricName(Enum):
     # Time To First Token
-    TTFT = "ttft"
+    TTFT = "TTFT"
 
     # The 95th percentile time to first token
-    TTFT_95 = "ttft_95"
+    TTFT_95 = "TTFT_95"
 
     # Time Per Output Token
-    TPOT = "tpot"
+    TPOT = "TPOT"
 
     # The overall time it takes for the model to generate the full response for a user.
     # LATENCY = (TTFT) + (TPOT) * output_length
-    LATENCY = "latency"
+    LATENCY = "LATENCY"
 
     # The 95th percentile latency
-    LATENCY_95 = "latency_95"
+    LATENCY_95 = "LATENCY_95"
 
     # The number of tokens per second an inference server
     # can generate across all users and requests.
-    THROUGHPUT = "throughput"
+    THROUGHPUT = "THROUGHPUT"
 
-    THROUGHPUT_INPUT_TOKENS = "throughput_input_tokens"
+    THROUGHPUT_INPUT_TOKENS = "THROUGHPUT_INPUT_TOKENS"
 
-    THROUGHPUT_OUTPUT_TOKENS = "throughput_output_tokens"
+    THROUGHPUT_OUTPUT_TOKENS = "THROUGHPUT_OUTPUT_TOKENS"
 
     # The number of requests per second an inference server can handle.
     # RPS = num_tasks / (max(end_time) - min(start_time))
-    RPS = "rps"
+    RPS = "RPS"
 
     # Top 5% latency longest latency
-    TOP_5_LATENCY = "top_5_latency"
+    TOP_5_LATENCY = "TOP_5_LATENCY"
     
     # Top 5% TTFT
-    TOP_5_TTFT = "top_5_ttft"
+    TOP_5_TTFT = "TOP_5_TTFT"
 
     # Longer than 60 seconds latency
-    LONGER_THAN_60_LATENCY = "longer_than_60_latency"
+    LONGER_THAN_60_LATENCY = "LONGER_THAN_60_LATENCY"
 
     # Longer than 120 seconds latency
-    LONGER_THAN_120_LATENCY = "longer_than_120_latency"
+    LONGER_THAN_120_LATENCY = "LONGER_THAN_120_LATENCY"
 
     # Longer than 180 seconds latency
-    LONGER_THAN_180_LATENCY = "longer_than_180_latency"
+    LONGER_THAN_180_LATENCY = "LONGER_THAN_180_LATENCY"
 
     # Failed requests total
-    FAILED_REQUESTS = "failed_requests"
+    FAILED_REQUESTS = "FAILED_REQUESTS"
 
     # Failed requests per hour
-    FAILED_REQUESTS_PER_HOUR = "failed_requests_per_hour"
+    FAILED_REQUESTS_PER_HOUR = "FAILED_REQUESTS_PER_HOUR"
 
 
 @dataclass
@@ -80,7 +80,7 @@ class Experiment:
 class Metric:
     id: int
     experiment_id: int
-    metric_name: MetricName
+    metric_name: str
     metric_value: float
     timestamp: datetime.datetime
 

@@ -8,14 +8,18 @@ from compressa.perf.experiment.inference import ExperimentRunner
 from compressa.perf.experiment.analysis import Analyzer
 from compressa.perf.data.models import Experiment
 from compressa.perf.db.operations import (
-    insert_experiment,
     fetch_metrics_by_experiment,
     fetch_parameters_by_experiment,
     fetch_experiment_by_id,
     fetch_all_experiments,
     clear_metrics_by_experiment,
 )
-from compressa.perf.db.setup import create_tables
+from compressa.perf.db.db_inserts import direct_insert_experiment as insert_experiment
+from compressa.perf.db.setup import (
+    create_tables,
+    start_db_writer,
+    stop_db_writer,
+)
 import datetime
 import sys
 import random
@@ -23,6 +27,9 @@ import string
 from compressa.perf.experiment.config import (
     load_yaml_configs,
 )
+
+from compressa.perf.experiment.continuous_stress import ContinuousStressTestRunner
+
 from compressa.utils import get_logger
 
 DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
@@ -98,8 +105,9 @@ def run_experiment(
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
+        start_db_writer(db)
+
         experiment_runner = ExperimentRunner(
-            conn=conn,
             api_key=api_key,
             openai_url=openai_url,
             model_name=model_name,
@@ -139,6 +147,7 @@ def run_experiment(
             db=db,
             recompute=False
         )
+        stop_db_writer()
 
 
 def report_experiment(
@@ -279,5 +288,66 @@ def run_experiments_from_yaml(
             max_tokens=config.max_tokens,
         )
     
-    # List experiments after running them
     list_experiments(db=db)
+
+
+
+def run_continuous_stress_test(
+    db: str,
+    api_key: str,
+    openai_url: str,
+    model_name: str,
+    experiment_name: str,
+    description: str,
+    prompts_file: str,
+    num_runners: int,
+    generate_prompts: bool,
+    num_prompts: int,
+    prompt_length: int,
+    max_tokens: int,
+    report_freq_min: int,
+):
+    """
+    Creates an Experiment, loads or generates prompts, and starts
+    an infinite stress test that computes windowed metrics in real time.
+    """
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is not set")
+
+    with sqlite3.connect(db) as conn:
+        create_tables(conn)
+        start_db_writer(db)
+
+        experiment = Experiment(
+            id=None,
+            experiment_name=experiment_name,
+            experiment_date=datetime.datetime.now(),
+            description=description,
+        )
+        experiment.id = insert_experiment(conn, experiment)
+        print(f"Continuous Stress Experiment created: {experiment}")
+
+        if generate_prompts:
+            prompts = generate_prompts_list(num_prompts, prompt_length)
+        else:
+            if not prompts_file:
+                raise ValueError("You must provide --prompts_file or use --generate_prompts")
+            prompts = read_prompts_from_file(prompts_file, prompt_length)
+
+        logger.info(f"Number of prompts: {len(prompts)}")
+
+        runner = ContinuousStressTestRunner(
+            db_path=db,
+            api_key=api_key,
+            openai_url=openai_url,
+            model_name=model_name,
+            experiment_id=experiment.id,
+            prompts=prompts,
+            num_runners=num_runners,
+            max_tokens=max_tokens,
+            report_freq_min=report_freq_min,
+        )
+        runner.start_test()
+
+        stop_db_writer()
+

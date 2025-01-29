@@ -8,7 +8,6 @@ from compressa.perf.db import (
 )
 from compressa.perf.db.setup import create_tables
 from compressa.perf.db.operations import (
-    insert_experiment,
     insert_parameter,
     insert_metric,
     insert_measurement,
@@ -17,6 +16,7 @@ from compressa.perf.db.operations import (
     fetch_parameters_by_experiment,
     fetch_measurements_by_experiment,
 )
+from compressa.perf.db.db_inserts import direct_insert_experiment as insert_experiment
 from compressa.perf.data.models import (
     Experiment,
     Metric,
@@ -75,7 +75,7 @@ class TestStringMethods(unittest.TestCase):
             metric = Metric(
                 id=None,
                 experiment_id=experiment_id,
-                metric_name=MetricName.TTFT,
+                metric_name=MetricName.TTFT.value,
                 metric_value=0.123,
                 timestamp=datetime.datetime.now(),
             )

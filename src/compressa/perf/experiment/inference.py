@@ -27,12 +27,10 @@ logger = get_logger(__name__)
 class InferenceRunner:
     def __init__(
         self,
-        conn: sqlite3.Connection,
         api_key: str,
         openai_url: str,
         model_name: str,
     ):
-        self.conn = conn
         self.model_name = model_name
         self.client = openai.OpenAI(api_key=api_key, base_url=openai_url)
 
@@ -119,13 +117,11 @@ class InferenceRunner:
 class ExperimentRunner:
     def __init__(
         self,
-        conn: sqlite3.Connection,
         api_key: str,
         openai_url: str,
         model_name: str,
         num_runners: int = 10,
     ):
-        self.conn = conn
         self.api_key = api_key
         self.openai_url = openai_url
         self.model_name = model_name
@@ -170,7 +166,7 @@ class ExperimentRunner:
             ),
         ]
         for param in parameters:
-            insert_parameter(self.conn, param)
+            insert_parameter(param)
 
     def run_experiment(
         self,
@@ -183,7 +179,6 @@ class ExperimentRunner:
         with ThreadPoolExecutor(max_workers=self.num_runners) as executor:
             runners = [
                 InferenceRunner(
-                    self.conn,
                     self.api_key,
                     self.openai_url,
                     self.model_name,
@@ -213,7 +208,7 @@ class ExperimentRunner:
         )
 
         for measurement in all_measurements:
-            insert_measurement(self.conn, measurement)
+            insert_measurement(measurement)
 
         logger.info(
             f"Number of failed measurements: {len([m for m in all_measurements if m.status == Status.FAILED])}"
