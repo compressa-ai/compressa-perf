@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "compressa-perf"
-version = "0.2.1"
+version = "0.2.2"
 description = "Performance Measurement tool by Compresss"
 authors = ["Gleb Morgachev <morgachev.g@gmail.com>"]
 readme = "README.md"
