@@ -1,12 +1,27 @@
 import argparse
+import signal
+import sys
 from typing import List
 from compressa.perf.cli.tools import (
     run_experiment,
     report_experiment,
     list_experiments,
     run_experiments_from_yaml,
+    run_continuous_stress_test,
     DEFAULT_DB_PATH,
 )
+from compressa.perf.db.setup import (
+    stop_db_writer,
+    get_db_writer,
+)
+
+
+def handle_stop_signals(signum, frame):
+    print(f"Received signal {signum}, stopping DB writer...")
+    db_writer = get_db_writer()
+    db_writer.wait_for_write()
+    stop_db_writer()
+    sys.exit(0)
 
 
 def run_experiment_args(args):
@@ -52,6 +67,23 @@ def run_experiments_from_yaml_args(args):
         api_key=args.api_key
     )
 
+
+def run_continuous_stress_test_args(args):
+    run_continuous_stress_test(
+        db=args.db,
+        api_key=args.api_key,
+        openai_url=args.openai_url,
+        model_name=args.model_name,
+        experiment_name=args.experiment_name,
+        description=args.description,
+        prompts_file=args.prompts_file,
+        num_runners=args.num_runners,
+        generate_prompts=args.generate_prompts,
+        num_prompts=args.num_prompts,
+        prompt_length=args.prompt_length,
+        max_tokens=args.max_tokens,
+        report_freq_min=args.report_freq_min,
+    )
 
 def main():
     parser = argparse.ArgumentParser(
@@ -219,6 +251,55 @@ Examples:
         help="OpenAI API key",
     )
     parser_yaml.set_defaults(func=run_experiments_from_yaml_args)
+
+    parser_stress = subparsers.add_parser(
+        "stress",
+        help="Run a continuous stress test (infinite requests, windowed metrics).",
+    )
+    parser_stress.add_argument(
+        "--db",
+        type=str,
+        default=DEFAULT_DB_PATH,
+        help="Path to the SQLite database",
+    )
+    parser_stress.add_argument(
+        "--openai_url", type=str, required=True, help="OpenAI-compatible API URL"
+    )
+    parser_stress.add_argument(
+        "--model_name", type=str, required=True, help="Model name"
+    )
+    parser_stress.add_argument(
+        "--experiment_name", type=str, required=True, help="Name of the experiment"
+    )
+    parser_stress.add_argument(
+        "--description", type=str, help="Description of the experiment"
+    )
+    parser_stress.add_argument(
+        "--prompts_file", type=str, help="File containing prompts"
+    )
+    parser_stress.add_argument(
+        "--num_runners", type=int, default=10, help="Number of concurrent runners"
+    )
+    parser_stress.add_argument(
+        "--api_key", type=str, required=True, help="API key"
+    )
+    parser_stress.add_argument(
+        "--generate_prompts", action="store_true", help="Generate random prompts instead of using a file"
+    )
+    parser_stress.add_argument(
+        "--num_prompts", type=int, default=100, help="Number of prompts to generate (if --generate_prompts)"
+    )
+    parser_stress.add_argument(
+        "--prompt_length", type=int, default=100, help="Length of each generated prompt (if --generate_prompts)"
+    )
+    parser_stress.add_argument(
+        "--max_tokens", type=int, default=1000, help="Maximum tokens for generation"
+    )
+    parser_stress.add_argument(
+        "--report_freq_min", type=float, default=1, help="Frequency (minutes) to compute windowed metrics"
+    )
+
+    parser_stress.set_defaults(func=run_continuous_stress_test_args)
 
     def default_function(args):
         parser.print_help()

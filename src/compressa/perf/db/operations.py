@@ -1,6 +1,8 @@
-# db_operations.py
-
 from typing import List, Optional
+import datetime
+from datetime import datetime
+
+from compressa.perf.db.setup import get_db_writer
 from compressa.perf.data.models import (
     Experiment,
     Metric,
@@ -9,73 +11,34 @@ from compressa.perf.data.models import (
     Measurement,
     Status,
 )
-import datetime
-from datetime import datetime
 
 
-# Insert Operations
+def insert_parameter(parameter: Parameter) -> int:
+    db_writer = get_db_writer()
+    if db_writer is None:
+        raise ValueError("DB writer is not initialized")
+    
+    db_writer.push_parameter(parameter)
+    return -1
 
 
-def insert_experiment(conn, experiment: Experiment) -> int:
-    sql = """
-    INSERT INTO Experiments (experiment_name, description)
-    VALUES (?, ?)
-    """
-    with conn:
-        cur = conn.execute(sql, (experiment.experiment_name, experiment.description))
-    return cur.lastrowid
+
+def insert_metric(metric: Metric) -> int:
+    db_writer = get_db_writer()
+    if db_writer is None:
+        raise ValueError("DB writer is not initialized")
+    
+    db_writer.push_metric(metric)
+    return -1
 
 
-def insert_parameter(conn, parameter: Parameter) -> int:
-    sql = """
-    INSERT INTO Parameters (experiment_id, key, value)
-    VALUES (?, ?, ?)
-    """
-    with conn:
-        cur = conn.execute(
-            sql, (parameter.experiment_id, parameter.key, parameter.value)
-        )
-    return cur.lastrowid
-
-
-def insert_metric(conn, metric: Metric) -> int:
-    sql = """
-    INSERT INTO Metrics (experiment_id, metric_name, metric_value, timestamp)
-    VALUES (?, ?, ?, ?)
-    """
-    with conn:
-        cur = conn.execute(
-            sql,
-            (
-                metric.experiment_id,
-                metric.metric_name.value,
-                metric.metric_value,
-                metric.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            ),
-        )
-        metric.id = cur.lastrowid
-    return metric
-
-
-def insert_measurement(conn, measurement: Measurement) -> int:
-    sql = """
-    INSERT INTO Measurements (experiment_id, n_input, n_output, ttft, start_time, end_time, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    """
-    with conn:
-        cur = conn.execute(
-            sql,
-            (
-                measurement.experiment_id,
-                measurement.n_input,
-                measurement.n_output,
-                measurement.ttft,
-                measurement.start_time,
-                measurement.end_time,
-                measurement.status.value,
-            ),
-        )
-    return cur.lastrowid
+def insert_measurement(measurement: Measurement) -> int:
+    db_writer = get_db_writer()
+    if db_writer is None:
+        raise ValueError("DB writer is not initialized")
+    
+    db_writer.push_measurement(measurement)
+    return -1
 
 
 # Fetch Operations
@@ -108,7 +71,7 @@ def fetch_metrics_by_experiment(conn, experiment_id: int) -> List[Metric]:
             Metric(
                 id=row[0],
                 experiment_id=row[1],
-                metric_name=MetricName(row[2]),
+                metric_name=row[2],
                 metric_value=row[3],
                 timestamp=datetime.strptime(row[4], "%Y-%m-%d %H:%M:%S"),
             )

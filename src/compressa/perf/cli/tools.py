@@ -8,14 +8,19 @@ from compressa.perf.experiment.inference import ExperimentRunner
 from compressa.perf.experiment.analysis import Analyzer
 from compressa.perf.data.models import Experiment
 from compressa.perf.db.operations import (
-    insert_experiment,
     fetch_metrics_by_experiment,
     fetch_parameters_by_experiment,
     fetch_experiment_by_id,
     fetch_all_experiments,
     clear_metrics_by_experiment,
 )
-from compressa.perf.db.setup import create_tables
+from compressa.perf.db.db_inserts import direct_insert_experiment as insert_experiment
+from compressa.perf.db.setup import (
+    create_tables,
+    start_db_writer,
+    stop_db_writer,
+    get_db_writer,
+)
 import datetime
 import sys
 import random
@@ -23,6 +28,9 @@ import string
 from compressa.perf.experiment.config import (
     load_yaml_configs,
 )
+
+from compressa.perf.experiment.continuous_stress import ContinuousStressTestRunner
+
 from compressa.utils import get_logger
 
 DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
@@ -54,22 +62,30 @@ def ensure_db_initialized(conn):
         print("Tables created successfully.")
 
 
-def generate_random_text(length):
+def generate_random_text(
+    length: int,
+    choise_generator: random.Random,
+):
     words = []
     current_length = 0
     while current_length < length:
-        word_length = random.randint(1, 20)
-        word = ''.join(random.choice(string.ascii_lowercase) for _ in range(word_length))
+        word_length = choise_generator.randint(1, 20)
+        word = ''.join(choise_generator.choice(string.ascii_lowercase) for _ in range(word_length))
         words.append(word)
         current_length += len(word) + 1
     
     words.append(". Repeat this text at least 10 times. Number the repetitions.")
     return ' '.join(words)[:length]
 
-def generate_prompts_list(num_prompts, prompt_length):
+def generate_prompts_list(
+    num_prompts: int,
+    prompt_length: int,
+    seed: int = 42,
+):
+    choise_generator = random.Random(seed)
     prompts = []
     for i in range(num_prompts):
-        random_text = generate_random_text(prompt_length - len(str(i)) - 1)
+        random_text = generate_random_text(prompt_length - len(str(i)) - 1, choise_generator)
         prompt = f"{i} {random_text}"
         prompts.append(prompt)
     return prompts
@@ -98,8 +114,10 @@ def run_experiment(
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
+        start_db_writer(db)
+        db_writer = get_db_writer()
+
         experiment_runner = ExperimentRunner(
-            conn=conn,
             api_key=api_key,
             openai_url=openai_url,
             model_name=model_name,
@@ -129,16 +147,17 @@ def run_experiment(
             max_tokens=max_tokens,
         )
 
-        # Run analysis after the experiment
+        db_writer.wait_for_write()
         analyzer = Analyzer(conn)
         analyzer.compute_metrics(experiment.id)
+        db_writer.wait_for_write()
         
-        # Reuse the reporting functionality
         report_experiment(
             experiment_id=experiment.id,
             db=db,
             recompute=False
         )
+        stop_db_writer()
 
 
 def report_experiment(
@@ -148,7 +167,9 @@ def report_experiment(
 ):
     with sqlite3.connect(db) as conn:
         ensure_db_initialized(conn)
-
+        start_db_writer(db)
+        db_writer = get_db_writer()
+        
         experiment = fetch_experiment_by_id(conn, experiment_id)
         if not experiment:
             print(f"Error: Experiment with ID {experiment_id} not found.")
@@ -188,6 +209,8 @@ def report_experiment(
             tablefmt="fancy_grid", 
             numalign="decimal",
         ))
+        db_writer.wait_for_write()
+        stop_db_writer()
 
 
 def list_experiments(
@@ -242,7 +265,7 @@ def list_experiments(
 
             if show_metrics:
                 metrics = fetch_metrics_by_experiment(conn, exp.id)
-                metrics_str = "\n".join([f"{m.metric_name.value}: {format_value(m.metric_value)}" for m in metrics])
+                metrics_str = "\n".join([f"{m.metric_name}: {format_value(m.metric_value)}" for m in metrics])
                 row.append(metrics_str)
 
             table_data.append(row)
@@ -279,5 +302,66 @@ def run_experiments_from_yaml(
             max_tokens=config.max_tokens,
         )
     
-    # List experiments after running them
     list_experiments(db=db)
+
+
+
+def run_continuous_stress_test(
+    db: str,
+    api_key: str,
+    openai_url: str,
+    model_name: str,
+    experiment_name: str,
+    description: str,
+    prompts_file: str,
+    num_runners: int,
+    generate_prompts: bool,
+    num_prompts: int,
+    prompt_length: int,
+    max_tokens: int,
+    report_freq_min: float,
+):
+    """
+    Creates an Experiment, loads or generates prompts, and starts
+    an infinite stress test that computes windowed metrics in real time.
+    """
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is not set")
+
+    with sqlite3.connect(db) as conn:
+        create_tables(conn)
+        start_db_writer(db)
+        db_writer = get_db_writer()
+        experiment = Experiment(
+            id=None,
+            experiment_name=experiment_name,
+            experiment_date=datetime.datetime.now(),
+            description=description,
+        )
+        experiment.id = insert_experiment(conn, experiment)
+        print(f"Continuous Stress Experiment created: {experiment}")
+
+        if generate_prompts:
+            prompts = generate_prompts_list(num_prompts, prompt_length)
+        else:
+            if not prompts_file:
+                raise ValueError("You must provide --prompts_file or use --generate_prompts")
+            prompts = read_prompts_from_file(prompts_file, prompt_length)
+
+        logger.info(f"Number of prompts: {len(prompts)}")
+
+        runner = ContinuousStressTestRunner(
+            db_path=db,
+            api_key=api_key,
+            openai_url=openai_url,
+            model_name=model_name,
+            experiment_id=experiment.id,
+            prompts=prompts,
+            num_runners=num_runners,
+            max_tokens=max_tokens,
+            report_freq_min=report_freq_min,
+        )
+        runner.start_test()
+
+        db_writer.wait_for_write()
+        stop_db_writer()

@@ -9,11 +9,11 @@ from compressa.perf.data.models import (
 )
 from compressa.perf.db.setup import create_tables
 from compressa.perf.db.operations import (
-    insert_experiment,
     insert_measurement,
     fetch_metrics_by_experiment,
     fetch_measurements_by_experiment,
 )
+from compressa.perf.db.db_inserts import direct_insert_experiment as insert_experiment
 from compressa.perf.experiment.analysis import Analyzer
 
 class TestAnalyzer(unittest.TestCase):
@@ -61,7 +61,7 @@ class TestAnalyzer(unittest.TestCase):
         ]
 
         for measurement in self.measurements:
-            insert_measurement(self.conn, measurement)
+            insert_measurement(measurement)
 
     def test_compute_metrics(self):
         measurements = fetch_measurements_by_experiment(self.conn, self.experiment.id)
@@ -75,10 +75,10 @@ class TestAnalyzer(unittest.TestCase):
         metrics = fetch_metrics_by_experiment(self.conn, self.experiment.id)
         metrics_dict = {metric.metric_name: metric.metric_value for metric in metrics}
 
-        self.assertAlmostEqual(metrics_dict[MetricName.TTFT], 0.6, places=2)
-        self.assertAlmostEqual(metrics_dict[MetricName.LATENCY], 2.0, places=2)
-        self.assertAlmostEqual(metrics_dict[MetricName.TPOT], 0.08, places=4)
-        self.assertAlmostEqual(metrics_dict[MetricName.THROUGHPUT], 48.0, places=2)
+        self.assertAlmostEqual(metrics_dict[MetricName.TTFT.value], 0.6, places=2)
+        self.assertAlmostEqual(metrics_dict[MetricName.LATENCY.value], 2.0, places=2)
+        self.assertAlmostEqual(metrics_dict[MetricName.TPOT.value], 0.08, places=4)
+        self.assertAlmostEqual(metrics_dict[MetricName.THROUGHPUT.value], 48.0, places=2)
 
 if __name__ == "__main__":
     unittest.main()

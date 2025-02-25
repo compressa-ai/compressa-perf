@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 from compressa.perf.experiment.inference import InferenceRunner, ExperimentRunner
 from compressa.perf.db import DB_NAME
 from compressa.perf.data.models import Experiment, Measurement
-from compressa.perf.db.operations import insert_experiment, fetch_measurements_by_experiment, insert_measurement
+from compressa.perf.db.operations import fetch_measurements_by_experiment, insert_measurement
+from compressa.perf.db.db_inserts import direct_insert_experiment as insert_experiment
 from compressa.perf.db.setup import create_tables
 
 
@@ -28,7 +29,6 @@ class TestData(unittest.TestCase):
     def test_inference(self):
         with sqlite3.connect(DB_NAME) as conn:
             runner = InferenceRunner(
-                conn=conn,
                 api_key=self.api_key,
                 openai_url="https://api.qdrant.mil-team.ru/chat-2/v1",
                 model_name="Compressa-Qwen2.5-14B-Instruct",
@@ -50,7 +50,7 @@ class TestData(unittest.TestCase):
             )
 
             if measurement:
-                insert_measurement(conn, measurement)
+                insert_measurement(measurement)
 
             measurements = fetch_measurements_by_experiment(conn, experiment.id)
             for measurement in measurements:
@@ -60,7 +60,6 @@ class TestData(unittest.TestCase):
         n_tasks = 10
         with sqlite3.connect(DB_NAME) as conn:
             experiment_runner = ExperimentRunner(
-                conn=conn,
                 api_key=self.api_key,
                 openai_url="https://api.qdrant.mil-team.ru/chat-2/v1",
                 model_name="Compressa-Qwen2.5-14B-Instruct",

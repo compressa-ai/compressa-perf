@@ -1,9 +1,10 @@
 import sqlite3
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from datetime import datetime
 import statistics
 from compressa.perf.db.operations import (
     fetch_measurements_by_experiment,
+    fetch_metrics_by_experiment,
     insert_metric,
     insert_parameter
 )
@@ -244,10 +245,51 @@ class Analyzer:
         total_time_hours = total_time_seconds / 3600.0
         return failed_count / total_time_hours
 
+
     def compute_metrics(self, experiment_id: int):
         measurements = fetch_measurements_by_experiment(self.conn, experiment_id)
         if not measurements:
             raise ValueError(f"No measurements found for experiment_id {experiment_id}")
+
+        metrics_dict, io_stats = self.compute_metrics_for_measurements(measurements)
+        if not metrics_dict:
+            raise ValueError(f"No successful measurements found for experiment_id {experiment_id}")
+
+        from datetime import datetime
+        now = datetime.now()
+        for base_name, val in metrics_dict.items():
+            metric = Metric(
+                id=None,
+                experiment_id=experiment_id,
+                metric_name=base_name,
+                metric_value=val,
+                timestamp=now
+            )
+            insert_metric(metric)
+
+        for key, value in io_stats.items():
+            param = Parameter(
+                id=None,
+                experiment_id=experiment_id,
+                key=key,
+                value=str(value)
+            )
+            insert_parameter(param)
+
+    def compute_metrics_for_measurements(
+        self,
+        measurements: List[Measurement]
+    ) -> Tuple[Dict[str, float], Dict[str, float]]:
+        """
+        Compute the standard set of metrics on a given subset of measurements.
+        Returns:
+          (metrics_dict, io_stats)
+            metrics_dict: { base_metric_name -> value, ... }
+            io_stats: { "avg_n_input" -> val, "std_n_input" -> val, ... }
+        If no measurements exist or all are invalid, returns two empty dicts.
+        """
+        if not measurements:
+            return {}, {}
 
         average_ttft = self.compute_average_ttft(measurements)
         q95_ttft = self.compute_q95_ttft(measurements)
@@ -261,7 +303,6 @@ class Analyzer:
         throughput = self.compute_throughput(measurements)
         throughput_input_tokens = self.compute_throughput_input_tokens(measurements)
         throughput_output_tokens = self.compute_throughput_output_tokens(measurements)
-        input_output_stats = self.compute_input_output_stats(measurements)
         rps = self.compute_rps(measurements)
 
         longer_than_60_latency = self.compute_longer_than_60_latency(measurements)
@@ -270,129 +311,25 @@ class Analyzer:
         failed_requests = self.compute_failed_requests(measurements)
         failed_requests_per_hour = self.compute_failed_requests_per_hour(measurements)
 
-        metrics = [
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.TTFT,
-                metric_value=average_ttft,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.TTFT_95,
-                metric_value=q95_ttft,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.TOP_5_TTFT,
-                metric_value=top_5_ttft,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.LATENCY,
-                metric_value=average_latency,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.LATENCY_95,
-                metric_value=q95_latency,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.TOP_5_LATENCY,
-                metric_value=top_5_latency,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.TPOT,
-                metric_value=average_time_per_output_token,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.THROUGHPUT,
-                metric_value=throughput,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.THROUGHPUT_INPUT_TOKENS,
-                metric_value=throughput_input_tokens,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.THROUGHPUT_OUTPUT_TOKENS,
-                metric_value=throughput_output_tokens,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.RPS,
-                metric_value=rps,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.LONGER_THAN_60_LATENCY,
-                metric_value=longer_than_60_latency,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.LONGER_THAN_120_LATENCY,
-                metric_value=longer_than_120_latency,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.LONGER_THAN_180_LATENCY,
-                metric_value=longer_than_180_latency,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.FAILED_REQUESTS,
-                metric_value=failed_requests,
-                timestamp=datetime.now()
-            ),
-            Metric(
-                id=None,
-                experiment_id=experiment_id,
-                metric_name=MetricName.FAILED_REQUESTS_PER_HOUR,
-                metric_value=failed_requests_per_hour,
-                timestamp=datetime.now()
-            ),
-        ]
+        io_stats = self.compute_input_output_stats(measurements)
 
-        for metric in metrics:
-            insert_metric(self.conn, metric)
+        metrics_dict = {
+            MetricName.TTFT.value: average_ttft,
+            MetricName.TTFT_95.value: q95_ttft,
+            MetricName.TOP_5_TTFT.value: top_5_ttft,
+            MetricName.LATENCY.value: average_latency,
+            MetricName.LATENCY_95.value: q95_latency,
+            MetricName.TOP_5_LATENCY.value: top_5_latency,
+            MetricName.TPOT.value: average_time_per_output_token,
+            MetricName.THROUGHPUT.value: throughput,
+            MetricName.THROUGHPUT_INPUT_TOKENS.value: throughput_input_tokens,
+            MetricName.THROUGHPUT_OUTPUT_TOKENS.value: throughput_output_tokens,
+            MetricName.RPS.value: rps,
+            MetricName.LONGER_THAN_60_LATENCY.value: longer_than_60_latency,
+            MetricName.LONGER_THAN_120_LATENCY.value: longer_than_120_latency,
+            MetricName.LONGER_THAN_180_LATENCY.value: longer_than_180_latency,
+            MetricName.FAILED_REQUESTS.value: failed_requests,
+            MetricName.FAILED_REQUESTS_PER_HOUR.value: failed_requests_per_hour,
+        }
 
-        for key, value in input_output_stats.items():
-            parameter = Parameter(
-                id=None,
-                experiment_id=experiment_id,
-                key=key,
-                value=str(value)
-            )
-            insert_parameter(self.conn, parameter)
+        return metrics_dict, io_stats
