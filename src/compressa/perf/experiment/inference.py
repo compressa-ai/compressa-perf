@@ -63,11 +63,17 @@ class InferenceRunner:
             )
 
             response_text = ""
+            first_token_empty = False
+            chunk = None
             for chunk in response:
                 if chunk.choices and chunk.choices[0].delta.content is not None:
                     if first_token_time == -1:
                         if chunk.choices[0].delta.content == "":
-                            raise Exception("First token is empty")
+                            if not first_token_empty:
+                                first_token_empty = True
+                                continue
+                            else:
+                                raise Exception("First token is empty")
                         first_token_time = time.time()
                         ttft = first_token_time - start_time
                     n_chunks += 1
@@ -78,6 +84,9 @@ class InferenceRunner:
             end_time = time.time()
             logger.debug(f"Prompt: {prompt}\nResponse text: {response_text}\n{'#' * 100}")
 
+            if not chunk:
+                raise Exception("Chunk not found in response")
+                
             if not chunk.usage:
                 if status == Status.SUCCESS:
                     logger.error(f"Usage not found in response when success")
@@ -174,7 +183,9 @@ class ExperimentRunner:
         prompts: List[str],
         num_tasks: int = 100,
         max_tokens: int = 1000,
+        seed: int = 42,
     ):
+        choise_generator = random.Random(seed)
         all_measurements = []
         with ThreadPoolExecutor(max_workers=self.num_runners) as executor:
             runners = [
@@ -189,7 +200,7 @@ class ExperimentRunner:
                 executor.submit(
                     runners[i % self.num_runners].run_inference,
                     experiment_id,
-                    random.choice(prompts),
+                    choise_generator.choice(prompts),
                     max_tokens
                 )
                 for i in range(num_tasks)

@@ -41,6 +41,7 @@ class ContinuousStressTestRunner:
         num_runners: int,
         max_tokens: int,
         report_freq_min: float,
+        seed: int = 42,
     ):
         self.db_path = db_path
         self.api_key = api_key
@@ -55,6 +56,8 @@ class ContinuousStressTestRunner:
 
         self.experiment_start_ts = time.time()
         self.window_count = 1
+
+        self.choise_generator = random.Random(seed)
 
     def start_test(self):
         """
@@ -99,7 +102,7 @@ class ContinuousStressTestRunner:
         Continuously schedule inference tasks in the thread pool.
         """
         while self.running:
-            prompt = random.choice(self.prompts)
+            prompt = self.choise_generator.choice(self.prompts)
             self.executor.submit(self._do_inference_task, prompt)
             # Short pause to avoid spamming the server too rapidly
             time.sleep(0.01)

@@ -167,5 +167,5 @@ class Measurement:
             ttft=ttft,
             start_time=start_time,
             end_time=end_time,
-            status=Status.FAILED.value,
+            status=Status.FAILED,
         )
