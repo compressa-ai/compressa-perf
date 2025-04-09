@@ -66,8 +66,9 @@ def generate_random_text(
     length: int,
     choise_generator: random.Random,
 ):
-    words = []
-    current_length = 0
+    date_string = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    words = [date_string]
+    current_length = len(date_string)
     while current_length < length:
         word_length = choise_generator.randint(1, 20)
         word = ''.join(choise_generator.choice(string.ascii_lowercase) for _ in range(word_length))
@@ -82,6 +83,7 @@ def generate_prompts_list(
     prompt_length: int,
     seed: int = 42,
 ):
+    logger.info(f"Generating {num_prompts} prompts with length {prompt_length} and seed {seed}")
     choise_generator = random.Random(seed)
     prompts = []
     for i in range(num_prompts):
@@ -108,6 +110,7 @@ def run_experiment(
     num_prompts: int = 100,
     prompt_length: int = 100,
     max_tokens: int = 1000,
+    seed: int = 42,
 ):
     if not api_key:
         raise ValueError("OPENAI_API_KEY is not set")
@@ -134,7 +137,7 @@ def run_experiment(
         print(f"Experiment created: {experiment}")
 
         if generate_prompts:
-            prompts = generate_prompts_list(num_prompts, prompt_length)
+            prompts = generate_prompts_list(num_prompts, prompt_length, seed)
         else:
             prompts = read_prompts_from_file(prompts_file, prompt_length)
 
@@ -145,6 +148,7 @@ def run_experiment(
             prompts=prompts,
             num_tasks=num_tasks,
             max_tokens=max_tokens,
+            seed=seed,
         )
 
         db_writer.wait_for_write()
@@ -219,11 +223,24 @@ def list_experiments(
     show_metrics: bool = False,
     name_filter: str = None,
     param_filters: str = None,
+    recompute: bool = False,
+    csv_file: str = None,
 ):
     with sqlite3.connect(db) as conn:
         ensure_db_initialized(conn)
 
         experiments = fetch_all_experiments(conn)
+        if recompute:
+            start_db_writer(db)
+            analyzer = Analyzer(conn)
+            for exp in experiments:
+                try:
+                    clear_metrics_by_experiment(conn, exp.id)
+                    analyzer.compute_metrics(exp.id)
+                except Exception as e:
+                    logger.error(f"Error computing metrics for experiment {exp.id}: {e}")
+                finally:
+                    logger.info(f"Metrics computed for experiment {exp.id}")
         
         if name_filter:
             experiments = [exp for exp in experiments if name_filter in exp.experiment_name]
@@ -240,40 +257,91 @@ def list_experiments(
             print("No experiments found in the database.")
             return
 
-        table_data = []
-        headers = ["ID", "Name", "Date", "Description"]
+        _print_experiments_cli(
+            experiments=experiments,
+            conn=conn,
+            show_parameters=show_parameters,
+            show_metrics=show_metrics,
+        )
+        if csv_file is not None:
+            _export_experiments_csv(
+                experiments=experiments,
+                conn=conn,
+                csv_file=csv_file,
+            )
+
+
+def _print_experiments_cli(
+    experiments: List[Experiment],
+    conn: sqlite3.Connection,
+    show_parameters: bool = False,
+    show_metrics: bool = False,
+):
+
+    table_data = []
+    headers = ["ID", "Name", "Date", "Description"]
+
+    if show_parameters:
+        headers.extend(["Parameters"])
+
+    desciptiont_length = 20 if show_parameters or show_metrics else 50
+    for exp in experiments:
+        row = [
+            exp.id,
+            exp.experiment_name,
+            exp.experiment_date.strftime("%Y-%m-%d %H:%M:%S") if exp.experiment_date else "N/A",
+            exp.description[:desciptiont_length] + "..." if exp.description and len(exp.description) > desciptiont_length else exp.description
+        ]
 
         if show_parameters:
-            headers.extend(["Parameters"])
+            parameters = fetch_parameters_by_experiment(conn, exp.id)
+            param_str = "\n".join([
+                f"{p.key}: {format_value(p.value, precision=2)[:10] + '...' if len(format_value(p.value, precision=2)) > 10 else format_value(p.value, precision=2)}" 
+                for p in parameters
+            ])
+            row.append(param_str)
 
-        desciptiont_length = 20 if show_parameters or show_metrics else 50
-        for exp in experiments:
-            row = [
-                exp.id,
-                exp.experiment_name,
-                exp.experiment_date.strftime("%Y-%m-%d %H:%M:%S") if exp.experiment_date else "N/A",
-                exp.description[:desciptiont_length] + "..." if exp.description and len(exp.description) > desciptiont_length else exp.description
-            ]
+        if show_metrics:
+            metrics = fetch_metrics_by_experiment(conn, exp.id)
+            metrics_str = "\n".join([f"{m.metric_name}: {format_value(m.metric_value)}" for m in metrics])
+            row.append(metrics_str)
 
-            if show_parameters:
-                parameters = fetch_parameters_by_experiment(conn, exp.id)
-                param_str = "\n".join([
-                    f"{p.key}: {format_value(p.value, precision=2)[:10] + '...' if len(format_value(p.value, precision=2)) > 10 else format_value(p.value, precision=2)}" 
-                    for p in parameters
-                ])
-                row.append(param_str)
+        table_data.append(row)
 
-            if show_metrics:
-                metrics = fetch_metrics_by_experiment(conn, exp.id)
-                metrics_str = "\n".join([f"{m.metric_name}: {format_value(m.metric_value)}" for m in metrics])
-                row.append(metrics_str)
+    print("\nList of Experiments:")
+    print(tabulate(table_data, headers=headers, tablefmt="grid"))
 
-            table_data.append(row)
+def _export_experiments_csv(
+    experiments: List[Experiment],
+    conn: sqlite3.Connection,
+    csv_file: str,
+):
+    table_data = []
+    metric_columns = set()
 
-        print("\nList of Experiments:")
-        print(tabulate(table_data, headers=headers, tablefmt="grid"))
+    for exp in experiments:
+        item = {}
+        item["id"] = exp.id
+        item["name"] = exp.experiment_name
+        item["date"] = exp.experiment_date.strftime("%Y-%m-%d %H:%M:%S") if exp.experiment_date else "N/A"
+        item["description"] = exp.description
+        item["parameters"] = {}
 
+        parameters = fetch_parameters_by_experiment(conn, exp.id)
+        for p in parameters:
+            item["parameters"][p.key] = format_value(p.value, precision=2)
 
+        metrics = fetch_metrics_by_experiment(conn, exp.id)
+        for m in metrics:
+            metric_column = f"M_{m.metric_name}"
+            item[metric_column] = format_value(m.metric_value)
+            metric_columns.add(metric_column)
+
+        table_data.append(item)
+
+    df = pd.DataFrame(table_data)
+    df = df.reindex(columns=["id", "name", "date", "description", "parameters"] + list(metric_columns), fill_value=None)
+    df.to_csv(csv_file, index=False)
 
 def run_experiments_from_yaml(
     yaml_file: str,
@@ -300,6 +368,7 @@ def run_experiments_from_yaml(
             num_prompts=config.num_prompts,
             prompt_length=config.prompt_length,
             max_tokens=config.max_tokens,
+            seed=config.seed,
         )
     
     list_experiments(db=db)

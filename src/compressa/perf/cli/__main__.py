@@ -57,6 +57,8 @@ def list_experiments_args(args):
         show_metrics=args.show_metrics,
         name_filter=args.name_filter,
         param_filters=args.param_filter,
+        recompute=args.recompute,
+        csv_file=args.csv_file,
     )
 
 
@@ -227,6 +229,17 @@ Examples:
         type=str,
         action="append",
         help="Filter experiments by parameter value (e.g., paramkey=value_substring)"
+    )
+    parser_list.add_argument(
+        "--recompute",
+        action="store_true",
+        help="Recompute metrics before listing experiments"
+    )
+    parser_list.add_argument(
+        "--csv-file",
+        type=str,
+        default=None,
+        help="Path to the CSV file to save the experiments"
     )
     parser_list.set_defaults(func=list_experiments_args)
 

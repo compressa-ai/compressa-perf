@@ -1,7 +1,9 @@
 import time
 import logging
 import openai
+import httpx
 from typing import List, Dict
+
 from compressa.perf.data.models import (
     Measurement,
     Parameter,
@@ -11,7 +13,7 @@ from compressa.perf.db.operations import (
     insert_measurement,
     insert_parameter,
 )
-from compressa.utils import get_logger
+from compressa.utils import get_logger, stream_chat
 
 import sqlite3
 from concurrent.futures import (
@@ -32,7 +34,14 @@ class InferenceRunner:
         model_name: str,
     ):
         self.model_name = model_name
-        self.client = openai.OpenAI(api_key=api_key, base_url=openai_url)
+        http_client = httpx.Client(
+            limits=httpx.Limits(
+                max_connections=200,
+                max_keepalive_connections=100
+            ),
+            timeout=600.0
+        )
+        self.client = openai.OpenAI(api_key=api_key, base_url=openai_url, http_client=http_client)
 
     def run_inference(
         self,
