@@ -1,4 +1,6 @@
 import time
+import os
+import json
 import logging
 import openai
 import httpx
@@ -14,6 +16,7 @@ from compressa.perf.db.operations import (
     insert_parameter,
 )
 from compressa.utils import get_logger, stream_chat
+from compressa.perf.experiment.chain_client import _NodeClient
 
 import sqlite3
 from concurrent.futures import (
@@ -29,84 +32,84 @@ logger = get_logger(__name__)
 class InferenceRunner:
     def __init__(
         self,
-        api_key: str,
-        openai_url: str,
+        node_url: str,
         model_name: str,
-    ):
+        account_address: str,
+        private_key_hex: str,
+    ) -> None:
         self.model_name = model_name
-        http_client = httpx.Client(
-            limits=httpx.Limits(
-                max_connections=200,
-                max_keepalive_connections=100
-            ),
-            timeout=600.0
+        self._client = _NodeClient(
+            node_url=node_url,
+            account_address=account_address,
+            private_key_hex=private_key_hex,
         )
-        self.client = openai.OpenAI(api_key=api_key, base_url=openai_url, http_client=http_client)
 
+    # ---------------------------------------------------------------------
+    # Public
+    # ---------------------------------------------------------------------
     def run_inference(
         self,
         experiment_id: int,
         prompt: str,
         max_tokens: int,
-    ):
+    ) -> Measurement:
         start_time = time.time()
-
-        response = None
-        first_token_time = -1
-        end_time = -1
-        ttft = 0
+        first_token_time = -1.0
+        ttft = 0.0
         n_chunks = 0
+        n_input = 0
+        n_output = 0
+        response_text = ""
         status = Status.SUCCESS
-        error_message = None
-        n_input = -1
-        n_output = -1
+
         try:
-            response: openai.Stream = self.client.chat.completions.create(
-                model=self.model_name,
+            resp = self._client.stream_chat_completion(
                 messages=[{"role": "user", "content": prompt}],
+                model=self.model_name,
                 max_tokens=max_tokens,
-                stream=True,
-                stream_options={
-                    'include_usage': True,
-                },
             )
 
-            response_text = ""
-            first_token_empty = False
-            chunk = None
-            for chunk in response:
-                if chunk.choices and chunk.choices[0].delta.content is not None:
-                    if first_token_time == -1:
-                        if chunk.choices[0].delta.content == "":
-                            if not first_token_empty:
-                                first_token_empty = True
-                                continue
-                            else:
-                                raise Exception("First token is empty")
+            for raw_line in resp.iter_lines(decode_unicode=True):
+                if not raw_line:
+                    continue
+
+                if raw_line.startswith("data:"):
+                    raw_line = raw_line[len("data:"):].strip()
+
+                if raw_line == "[DONE]":
+                    break
+
+                chunk = json.loads(raw_line)
+
+                usage = chunk.get("usage")
+                if usage:  # present on final chunk
+                    n_input = usage.get("prompt_tokens", 0)
+                    n_output = usage.get("completion_tokens", 0)
+
+                delta = (
+                    chunk.get("choices", [{}])[0]
+                    .get("delta", {})
+                    .get("content") if chunk.get("choices") else None
+                )
+                logger.debug(f"Delta: {delta}")
+                if delta is not None:
+                    if first_token_time < 0:
                         first_token_time = time.time()
                         ttft = first_token_time - start_time
+                    response_text += delta
                     n_chunks += 1
-                    response_text += chunk.choices[0].delta.content
-                elif first_token_time == -1 and chunk.choices[0].delta.content is None:
-                    status = Status.FAILED
-                    raise Exception("First token not found in response")
+
+            if n_chunks == 0:
+                raise RuntimeError("No content chunks received – server returned empty stream")
+
             end_time = time.time()
-            logger.debug(f"Prompt: {prompt}\nResponse text: {response_text}\n{'#' * 100}")
+            logger.debug(
+                "Prompt:%s\nResponse text:%s\n%s",
+                prompt,
+                response_text,
+                "#" * 40,
+            )
 
-            if not chunk:
-                raise Exception("Chunk not found in response")
-                
-            if not chunk.usage:
-                if status == Status.SUCCESS:
-                    logger.error(f"Usage not found in response when success")
-                    raise Exception("Usage not found in response when success")
-
-            usage = chunk.usage
-            n_input = usage.prompt_tokens
-            n_output = usage.completion_tokens
-
-            assert status == Status.SUCCESS
-           
             return Measurement(
                 id=None,
                 experiment_id=experiment_id,
@@ -115,13 +118,14 @@ class InferenceRunner:
                 ttft=ttft,
                 start_time=start_time,
                 end_time=end_time,
-                status=Status.SUCCESS,
+                status=status,
             )
 
-        except Exception as e:
-            end_time = time.time() - start_time
-            logger.error(f"API request failed: {e}.\n ttft: {ttft}s, end_time: {end_time}s, n_chunks: {n_chunks} {response}")
-            status = Status.FAILED
+        except Exception as exc:
+            logger.error(
+                "API request failed: %s (chunks=%s, ttft=%.3fs)", exc, n_chunks, ttft
+            )
+            end_time = time.time()
             return Measurement.failed(
                 experiment_id=experiment_id,
                 n_input=n_input,
@@ -135,101 +139,90 @@ class InferenceRunner:
 class ExperimentRunner:
     def __init__(
         self,
-        api_key: str,
-        openai_url: str,
+        node_url: str,
         model_name: str,
+        account_address: str,
+        private_key_hex: str,
         num_runners: int = 10,
-    ):
-        self.api_key = api_key
-        self.openai_url = openai_url
+    ) -> None:
+        self.node_url = node_url
         self.model_name = model_name
+        self.account_address = account_address
+        self.private_key_hex = private_key_hex
         self.num_runners = num_runners
 
-    def store_experiment_parameters(
+    def _store_experiment_parameters(
         self,
         experiment_id: int,
         num_tasks: int,
         max_tokens: int,
-    ):
-        parameters = [
-            Parameter(
-                id=None,
-                experiment_id=experiment_id,
-                key="num_workers",
-                value=str(self.num_runners),
-            ),
-            Parameter(
-                id=None,
-                experiment_id=experiment_id,
-                key="num_tasks",
-                value=str(num_tasks),
-            ),
-            Parameter(
-                id=None,
-                experiment_id=experiment_id,
-                key="openai_url",
-                value=self.openai_url,
-            ),
-            Parameter(
-                id=None,
-                experiment_id=experiment_id,
-                key="max_tokens",
-                value=str(max_tokens),
-            ),
-            Parameter(
-                id=None,
-                experiment_id=experiment_id,
-                key="model_name",
-                value=self.model_name,
-            ),
+    ) -> None:
+        params = [
+            ("num_workers", str(self.num_runners)),
+            ("num_tasks", str(num_tasks)),
+            ("node_url", self.node_url),
+            ("max_tokens", str(max_tokens)),
+            ("model_name", self.model_name),
+            ("requester_address", self.account_address),
         ]
-        for param in parameters:
-            insert_parameter(param)
+        for key, value in params:
+            insert_parameter(
+                Parameter(id=None, experiment_id=experiment_id, key=key, value=value)
+            )
 
+    # ---------------------------------------------------------------------
+    # Public API
+    # ---------------------------------------------------------------------
     def run_experiment(
         self,
+        *,
         experiment_id: int,
         prompts: List[str],
         num_tasks: int = 100,
         max_tokens: int = 1000,
         seed: int = 42,
-    ):
-        choise_generator = random.Random(seed)
-        all_measurements = []
-        with ThreadPoolExecutor(max_workers=self.num_runners) as executor:
-            runners = [
-                InferenceRunner(
-                    self.api_key,
-                    self.openai_url,
-                    self.model_name,
-                )
-                for _ in range(self.num_runners)
-            ]
+    ) -> None:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import random
+        from tqdm import tqdm
+
+        rng = random.Random(seed)
+        all_measurements: List[Measurement] = []
+
+        # Spin up a pool of pre‑initialised runners so each thread has its own Session
+        runners = [
+            InferenceRunner(
+                self.node_url,
+                self.model_name,
+                self.account_address,
+                self.private_key_hex,
+            )
+            for _ in range(self.num_runners)
+        ]
+
+        with ThreadPoolExecutor(max_workers=self.num_runners) as pool:
             futures = [
-                executor.submit(
+                pool.submit(
                     runners[i % self.num_runners].run_inference,
                     experiment_id,
-                    choise_generator.choice(prompts),
-                    max_tokens
+                    rng.choice(prompts),
+                    max_tokens,
                 )
                 for i in range(num_tasks)
             ]
-            for future in tqdm(as_completed(futures), total=num_tasks, desc="Running experiments"):
+
+            for f in tqdm(as_completed(futures), total=num_tasks, desc="Running experiments"):
                 try:
-                    result = future.result()
-                    all_measurements.append(result)
-                except Exception as e:
-                    logger.error(f"Task failed: {e}")
+                    all_measurements.append(f.result())
+                except Exception as exc:
+                    logger.error("Task failed: %s", exc)
 
-        self.store_experiment_parameters(
-            experiment_id,
-            num_tasks,
-            max_tokens,
-        )
-
-        for measurement in all_measurements:
-            insert_measurement(measurement)
+        # Persist metadata & results --------------------------------------
+        self._store_experiment_parameters(experiment_id, num_tasks, max_tokens)
+        for m in all_measurements:
+            insert_measurement(m)
 
         logger.info(
-            f"Number of failed measurements: {len([m for m in all_measurements if m.status == Status.FAILED])}"
+            "Number of failed measurements: %d",
+            len([m for m in all_measurements if m.status == Status.FAILED]),
         )

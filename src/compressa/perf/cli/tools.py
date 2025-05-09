@@ -74,7 +74,7 @@ def generate_random_text(
         word = ''.join(choise_generator.choice(string.ascii_lowercase) for _ in range(word_length))
         words.append(word)
         current_length += len(word) + 1
-    
+
     words.append(". Repeat this text at least 10 times. Number the repetitions.")
     return ' '.join(words)[:length]
 
@@ -98,9 +98,10 @@ def read_prompts_from_file(file_path, prompt_length):
 
 def run_experiment(
     db: str = DEFAULT_DB_PATH,
-    api_key: str = None,
-    openai_url: str = None,
+    node_url: str = None,
     model_name: str = None,
+    account_address: str = None,
+    private_key_hex: str = None,
     experiment_name: str = None,
     description: str = None,
     prompts_file: str = None,
@@ -112,8 +113,12 @@ def run_experiment(
     max_tokens: int = 1000,
     seed: int = 42,
 ):
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY is not set")
+    if not node_url:
+        raise ValueError("node_url is not set")
+    if not account_address:
+        raise ValueError("account_address is not set")
+    if not private_key_hex:
+        raise ValueError("private_key_hex is not set")
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
@@ -121,9 +126,10 @@ def run_experiment(
         db_writer = get_db_writer()
 
         experiment_runner = ExperimentRunner(
-            api_key=api_key,
-            openai_url=openai_url,
+            node_url=node_url,
             model_name=model_name,
+            account_address=account_address,
+            private_key_hex=private_key_hex,
             num_runners=num_runners,
         )
 
@@ -155,7 +161,7 @@ def run_experiment(
         analyzer = Analyzer(conn)
         analyzer.compute_metrics(experiment.id)
         db_writer.wait_for_write()
-        
+
         report_experiment(
             experiment_id=experiment.id,
             db=db,
@@ -173,27 +179,27 @@ def report_experiment(
         ensure_db_initialized(conn)
         start_db_writer(db)
         db_writer = get_db_writer()
-        
+
         experiment = fetch_experiment_by_id(conn, experiment_id)
         if not experiment:
             print(f"Error: Experiment with ID {experiment_id} not found.")
             sys.exit(1)
 
         analyzer = Analyzer(conn)
-        
+
         if recompute:
             clear_metrics_by_experiment(conn, experiment_id)
             analyzer.compute_metrics(experiment_id)
-        
+
         parameters = fetch_parameters_by_experiment(conn, experiment_id)
         metrics = fetch_metrics_by_experiment(conn, experiment_id)
-        
+
         print(f"\nExperiment Details:")
         print(f"ID: {experiment.id}")
         print(f"Name: {experiment.experiment_name}")
         print(f"Date: {experiment.experiment_date}")
         print(f"Description: {experiment.description}")
-        
+
         param_table = [[p.key, format_value(p.value)] for p in parameters]
         print("\nExperiment Parameters:")
         print(tabulate(
@@ -241,10 +247,10 @@ def list_experiments(
                     logger.error(f"Error computing metrics for experiment {exp.id}: {e}")
                 finally:
                     logger.info(f"Metrics computed for experiment {exp.id}")
-        
+
         if name_filter:
             experiments = [exp for exp in experiments if name_filter in exp.experiment_name]
-        
+
         if param_filters:
             for param_filter in param_filters:
                 param_key, _, param_value_substring = param_filter.partition('=')
@@ -346,19 +352,26 @@ def _export_experiments_csv(
 def run_experiments_from_yaml(
     yaml_file: str,
     db: str = DEFAULT_DB_PATH,
-    api_key: str = None,
+    node_url: str = None,
+    account_address: str = None,
+    private_key_hex: str = None,
 ):
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY is not set")
+    if not node_url:
+        raise ValueError("node_url is not set")
+    if not account_address:
+        raise ValueError("account_address is not set")
+    if not private_key_hex:
+        raise ValueError("private_key_hex is not set")
 
     configs = load_yaml_configs(yaml_file)
-    
+
     for config in configs:
         run_experiment(
             db=db,
-            api_key=api_key,
-            openai_url=config.openai_url,
+            node_url=node_url,
             model_name=config.model_name,
+            account_address=account_address,
+            private_key_hex=private_key_hex,
             experiment_name=config.experiment_name,
             description=config.description,
             prompts_file=config.prompts_file,
@@ -370,16 +383,17 @@ def run_experiments_from_yaml(
             max_tokens=config.max_tokens,
             seed=config.seed,
         )
-    
+
     list_experiments(db=db)
 
 
 
 def run_continuous_stress_test(
     db: str,
-    api_key: str,
-    openai_url: str,
+    node_url: str,
     model_name: str,
+    account_address: str,
+    private_key_hex: str,
     experiment_name: str,
     description: str,
     prompts_file: str,
@@ -394,8 +408,12 @@ def run_continuous_stress_test(
     Creates an Experiment, loads or generates prompts, and starts
     an infinite stress test that computes windowed metrics in real time.
     """
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY is not set")
+    if not node_url:
+        raise ValueError("node_url is not set")
+    if not account_address:
+        raise ValueError("account_address is not set")
+    if not private_key_hex:
+        raise ValueError("private_key_hex is not set")
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
@@ -421,9 +439,10 @@ def run_continuous_stress_test(
 
         runner = ContinuousStressTestRunner(
             db_path=db,
-            api_key=api_key,
-            openai_url=openai_url,
+            node_url=node_url,
             model_name=model_name,
+            account_address=account_address,
+            private_key_hex=private_key_hex,
             experiment_id=experiment.id,
             prompts=prompts,
             num_runners=num_runners,

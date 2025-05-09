@@ -16,9 +16,6 @@ class TestData(unittest.TestCase):
     def __init__(self, methodName: str = "runTest") -> None:
         super().__init__(methodName)
         load_dotenv()
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OPENAI_API_KEY is not set")
 
     def setUp(self):
         if os.path.exists(DB_NAME):
@@ -28,10 +25,15 @@ class TestData(unittest.TestCase):
 
     def test_inference(self):
         with sqlite3.connect(DB_NAME) as conn:
+            node_url = os.getenv("NODE_URL", "http://localhost:8545")
+            account_address = os.getenv("ACCOUNT_ADDRESS", "0x0000000000000000000000000000000000000000")
+            private_key_hex = os.getenv("PRIVATE_KEY_HEX", "0x0000000000000000000000000000000000000000000000000000000000000000")
+
             runner = InferenceRunner(
-                api_key=self.api_key,
-                openai_url="https://api.qdrant.mil-team.ru/chat-2/v1",
+                node_url=node_url,
                 model_name="Compressa-Qwen2.5-14B-Instruct",
+                account_address=account_address,
+                private_key_hex=private_key_hex,
             )
 
             experiment = Experiment(
@@ -59,10 +61,15 @@ class TestData(unittest.TestCase):
     def test_experiment_runner(self):
         n_tasks = 10
         with sqlite3.connect(DB_NAME) as conn:
+            node_url = os.getenv("NODE_URL", "http://localhost:8545")
+            account_address = os.getenv("ACCOUNT_ADDRESS", "0x0000000000000000000000000000000000000000")
+            private_key_hex = os.getenv("PRIVATE_KEY_HEX", "0x0000000000000000000000000000000000000000000000000000000000000000")
+
             experiment_runner = ExperimentRunner(
-                api_key=self.api_key,
-                openai_url="https://api.qdrant.mil-team.ru/chat-2/v1",
+                node_url=node_url,
                 model_name="Compressa-Qwen2.5-14B-Instruct",
+                account_address=account_address,
+                private_key_hex=private_key_hex,
                 num_runners=5
             )
 

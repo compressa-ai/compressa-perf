@@ -79,6 +79,9 @@ class _NodeClient:
             "messages": messages,
             "stream": True,
             "max_tokens": max_tokens,
+            "stream_options": {
+                "include_usage": True
+            }
         }
         payload_bytes = json.dumps(payload, separators=(",", ":")).encode()
 

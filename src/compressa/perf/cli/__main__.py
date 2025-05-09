@@ -27,9 +27,10 @@ def handle_stop_signals(signum, frame):
 def run_experiment_args(args):
     run_experiment(
         db=args.db,
-        api_key=args.api_key,
-        openai_url=args.openai_url,
+        node_url=args.node_url,
         model_name=args.model_name,
+        account_address=args.account_address,
+        private_key_hex=args.private_key_hex,
         experiment_name=args.experiment_name,
         description=args.description,
         prompts_file=args.prompts_file,
@@ -66,16 +67,19 @@ def run_experiments_from_yaml_args(args):
     run_experiments_from_yaml(
         yaml_file=args.yaml_file,
         db=args.db,
-        api_key=args.api_key
+        node_url=args.node_url,
+        account_address=args.account_address,
+        private_key_hex=args.private_key_hex
     )
 
 
 def run_continuous_stress_test_args(args):
     run_continuous_stress_test(
         db=args.db,
-        api_key=args.api_key,
-        openai_url=args.openai_url,
+        node_url=args.node_url,
         model_name=args.model_name,
+        account_address=args.account_address,
+        private_key_hex=args.private_key_hex,
         experiment_name=args.experiment_name,
         description=args.description,
         prompts_file=args.prompts_file,
@@ -142,10 +146,16 @@ Examples:
         help="Path to the SQLite database",
     )
     parser_run.add_argument(
-        "--openai_url", type=str, required=True, help="OpenAI-compatible API URL"
+        "--node_url", type=str, required=True, help="Node URL"
     )
     parser_run.add_argument(
         "--model_name", type=str, required=True, help="Model name"
+    )
+    parser_run.add_argument(
+        "--account_address", type=str, required=True, help="Account address"
+    )
+    parser_run.add_argument(
+        "--private_key_hex", type=str, required=True, help="Private key hex"
     )
     parser_run.add_argument(
         "--experiment_name", type=str, required=True, help="Name of the experiment"
@@ -161,9 +171,6 @@ Examples:
     )
     parser_run.add_argument(
         "--num_runners", type=int, default=10, help="Number of concurrent runners"
-    )
-    parser_run.add_argument(
-        "--api_key", type=str, required=True, help="API key"
     )
     parser_run.add_argument(
         "--generate_prompts", action="store_true", help="Generate random prompts instead of using a file"
@@ -258,10 +265,22 @@ Examples:
         help="Path to the SQLite database",
     )
     parser_yaml.add_argument(
-        "--api_key",
+        "--node_url",
         type=str,
         required=True,
-        help="OpenAI API key",
+        help="Node URL",
+    )
+    parser_yaml.add_argument(
+        "--account_address",
+        type=str,
+        required=True,
+        help="Account address",
+    )
+    parser_yaml.add_argument(
+        "--private_key_hex",
+        type=str,
+        required=True,
+        help="Private key hex",
     )
     parser_yaml.set_defaults(func=run_experiments_from_yaml_args)
 
@@ -276,10 +295,16 @@ Examples:
         help="Path to the SQLite database",
     )
     parser_stress.add_argument(
-        "--openai_url", type=str, required=True, help="OpenAI-compatible API URL"
+        "--node_url", type=str, required=True, help="Node URL"
     )
     parser_stress.add_argument(
         "--model_name", type=str, required=True, help="Model name"
+    )
+    parser_stress.add_argument(
+        "--account_address", type=str, required=True, help="Account address"
+    )
+    parser_stress.add_argument(
+        "--private_key_hex", type=str, required=True, help="Private key hex"
     )
     parser_stress.add_argument(
         "--experiment_name", type=str, required=True, help="Name of the experiment"
@@ -292,9 +317,6 @@ Examples:
     )
     parser_stress.add_argument(
         "--num_runners", type=int, default=10, help="Number of concurrent runners"
-    )
-    parser_stress.add_argument(
-        "--api_key", type=str, required=True, help="API key"
     )
     parser_stress.add_argument(
         "--generate_prompts", action="store_true", help="Generate random prompts instead of using a file"

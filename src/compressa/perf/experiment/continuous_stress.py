@@ -33,9 +33,10 @@ class ContinuousStressTestRunner:
     def __init__(
         self,
         db_path: str,
-        api_key: str,
-        openai_url: str,
+        node_url: str,
         model_name: str,
+        account_address: str,
+        private_key_hex: str,
         experiment_id: int,
         prompts: List[str],
         num_runners: int,
@@ -44,9 +45,10 @@ class ContinuousStressTestRunner:
         seed: int = 42,
     ):
         self.db_path = db_path
-        self.api_key = api_key
-        self.openai_url = openai_url
+        self.node_url = node_url
         self.model_name = model_name
+        self.account_address = account_address
+        self.private_key_hex = private_key_hex
         self.experiment_id = experiment_id
         self.prompts = prompts
         self.num_runners = num_runners
@@ -67,9 +69,10 @@ class ContinuousStressTestRunner:
         """
         self.executor = ThreadPoolExecutor(max_workers=self.num_runners)
         self.inference_runner = InferenceRunner(
-            api_key=self.api_key,
-            openai_url=self.openai_url,
+            node_url=self.node_url,
             model_name=self.model_name,
+            account_address=self.account_address,
+            private_key_hex=self.private_key_hex,
         )
 
         self._store_continuous_params()
@@ -123,7 +126,7 @@ class ContinuousStressTestRunner:
         Every 'report_freq_sec', compute metrics for the time window
         [start, end], store them in the DB (with a suffix), and log them.
         """
-        
+
 
         while self.running:
             time.sleep(self.report_freq_sec)
@@ -226,7 +229,8 @@ class ContinuousStressTestRunner:
             ("max_tokens", str(self.max_tokens)),
             ("report_freq_min", str(int(self.report_freq_sec // 60))),
             ("model_name", self.model_name),
-            ("openai_url", self.openai_url),
+            ("node_url", self.node_url),
+            ("account_address", self.account_address),
         ]
         for k, v in param_list:
             p = Parameter(

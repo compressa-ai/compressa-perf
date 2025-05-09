@@ -29,7 +29,7 @@ class Analyzer:
         if not measurements:
             logger.warning("No successful measurements found for TTFT.")
             return 0.0
-        
+
         total_ttft = sum(m.ttft for m in measurements)
         return total_ttft / len(measurements)
 
@@ -58,7 +58,7 @@ class Analyzer:
         if not measurements:
             logger.warning("No successful measurements found for top 5% TTFT.")
             return 0.0
-        
+
         ttfts = sorted(m.ttft for m in measurements)
         n = len(ttfts)
         cutoff_index = int(0.95 * n)  # start of the top 5% slice
@@ -66,7 +66,7 @@ class Analyzer:
             # Edge case: if n=1, .95*(n-1) might be 0. 
             # but usually you'd see at least 1 item anyway
             return 0.0
-        
+
         top_5_ttfts = ttfts[cutoff_index:]
         return sum(top_5_ttfts) / len(top_5_ttfts)
 
@@ -117,7 +117,7 @@ class Analyzer:
             logger.warning("No successful measurements found for time per output token.")
             return 0.0
         total_latency = sum((m.end_time - m.start_time) for m in measurements)
-        total_output_tokens = sum(m.n_output for m in measurements)
+        total_output_tokens = sum(max(0, m.n_output) for m in measurements)
         return total_latency / total_output_tokens if total_output_tokens > 0 else 0.0
 
     def compute_throughput(self, measurements: List[Measurement]) -> float:
@@ -129,8 +129,8 @@ class Analyzer:
         if not measurements:
             logger.warning("No successful measurements found for throughput.")
             return 0.0
-        total_input_tokens = sum(m.n_input for m in measurements)
-        total_output_tokens = sum(m.n_output for m in measurements)
+        total_input_tokens = sum(max(0, m.n_input) for m in measurements)
+        total_output_tokens = sum(max(0, m.n_output) for m in measurements)
         total_tokens = total_input_tokens + total_output_tokens
         experiment_start_time = min(m.start_time for m in measurements)
         experiment_end_time = max(m.end_time for m in measurements)
@@ -143,7 +143,7 @@ class Analyzer:
         if not measurements:
             logger.warning("No successful measurements found for throughput input tokens.")
             return 0.0
-        total_input_tokens = sum(m.n_input for m in measurements)
+        total_input_tokens = sum(max(0, m.n_input) for m in measurements)
         experiment_start_time = min(m.start_time for m in measurements)
         experiment_end_time = max(m.end_time for m in measurements)
         total_time = experiment_end_time - experiment_start_time
@@ -155,7 +155,7 @@ class Analyzer:
         if not measurements:
             logger.warning("No successful measurements found for throughput output tokens.")
             return 0.0
-        total_output_tokens = sum(m.n_output for m in measurements)
+        total_output_tokens = sum(max(0, m.n_output) for m in measurements)
         experiment_start_time = min(m.start_time for m in measurements)
         experiment_end_time = max(m.end_time for m in measurements)
         total_time = experiment_end_time - experiment_start_time
@@ -174,9 +174,9 @@ class Analyzer:
                 "avg_n_output": 0.0,
                 "std_n_output": 0.0
             }
-        n_inputs = [m.n_input for m in measurements]
-        n_outputs = [m.n_output for m in measurements]
-        
+        n_inputs = [max(0, m.n_input) for m in measurements]
+        n_outputs = [max(0, m.n_output) for m in measurements]
+
         return {
             "avg_n_input": statistics.mean(n_inputs),
             "std_n_input": statistics.stdev(n_inputs) if len(n_inputs) > 1 else 0.0,
