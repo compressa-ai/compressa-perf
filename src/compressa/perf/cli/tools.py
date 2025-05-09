@@ -64,14 +64,14 @@ def ensure_db_initialized(conn):
 
 def generate_random_text(
     length: int,
-    choise_generator: random.Random,
+    choice_generator: random.Random,
 ):
     date_string = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     words = [date_string]
     current_length = len(date_string)
     while current_length < length:
-        word_length = choise_generator.randint(1, 20)
-        word = ''.join(choise_generator.choice(string.ascii_lowercase) for _ in range(word_length))
+        word_length = choice_generator.randint(1, 20)
+        word = ''.join(choice_generator.choice(string.ascii_lowercase) for _ in range(word_length))
         words.append(word)
         current_length += len(word) + 1
 
@@ -84,10 +84,10 @@ def generate_prompts_list(
     seed: int = 42,
 ):
     logger.info(f"Generating {num_prompts} prompts with length {prompt_length} and seed {seed}")
-    choise_generator = random.Random(seed)
+    choice_generator = random.Random(seed)
     prompts = []
     for i in range(num_prompts):
-        random_text = generate_random_text(prompt_length - len(str(i)) - 1, choise_generator)
+        random_text = generate_random_text(prompt_length - len(str(i)) - 1, choice_generator)
         prompt = f"{i} {random_text}"
         prompts.append(prompt)
     return prompts

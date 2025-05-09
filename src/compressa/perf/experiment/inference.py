@@ -182,9 +182,6 @@ class ExperimentRunner:
         max_tokens: int = 1000,
         seed: int = 42,
     ) -> None:
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-        import random
-        from tqdm import tqdm
 
         rng = random.Random(seed)
         all_measurements: List[Measurement] = []
