@@ -23,9 +23,10 @@ pip install compressa-perf
 
 ```bash
 ❯ compressa-perf measure \
-    --openai_url https://some-api-url.ru/chat-2/v1/ \
-    --api_key "${OPENAI_API_KEY}" \
-    --model_name Compressa-Qwen2.5-14B-Instruct \
+    --node_url http://example.node.url:8545 \
+    --model_name Qwen/Qwen2.5-7B-Instruct \
+    --account_address 0x1234567890abcdef1234567890abcdef12345678 \
+    --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \
     --experiment_name "File Prompts Run" \
     --prompts_file resources/prompts.csv \
     --num_tasks 1000 \
@@ -36,9 +37,10 @@ pip install compressa-perf
 
 ```bash
 ❯ compressa-perf measure \
-    --openai_url https://some-api-url.ru/chat-2/v1/ \
-    --api_key "${OPENAI_API_KEY}" \
-    --model_name Compressa-Qwen2.5-14B-Instruct \
+    --node_url http://example.node.url:8545 \
+    --model_name Qwen/Qwen2.5-7B-Instruct \
+    --account_address 0x1234567890abcdef1234567890abcdef12345678 \
+    --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \
     --experiment_name "Generated Prompts Run" \
     --num_tasks 2 \
     --num_runners 2 \
@@ -54,14 +56,37 @@ Full parameter list can be obtained with `compressa-perf measure -h`.
 You can describe set of experiments in YAML file and run them on different services in one command:
 
 ```bash
-❯ compressa-perf measure-from-yaml experiments.yaml
+❯ compressa-perf measure-from-yaml \
+    --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \
+    config.yml
+```
+
+You can also override values from the YAML file using command-line options:
+
+```bash
+# Override node_url
+❯ compressa-perf measure-from-yaml \
+    --node_url http://override.node.url:8545 \
+    --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \
+    config.yml
+
+# Override account_address
+❯ compressa-perf measure-from-yaml \
+    --account_address 0x9876543210abcdef9876543210abcdef98765432 \
+    --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \
+    config.yml
+
+# Override model_name
+❯ compressa-perf measure-from-yaml \
+    --model_name Qwen/Qwen2.5-14B-Instruct \
+    --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \
+    config.yml
 ```
 
 Example of YAML file:
 
 ```yaml
-- openai_url: https://some-api-url/v1/
-  model_name: Compressa-Qwen2-72B-Instruct
+- model_name: Qwen/Qwen2.5-7B-Instruct
   experiment_name: "File Prompts Run 1"
   description: "Experiment using prompts from a file with 10 tasks and 5 runners"
   prompts_file: resources/prompts.csv
@@ -71,10 +96,11 @@ Example of YAML file:
   num_prompts: 0
   prompt_length: 0
   max_tokens: 1000
+  node_url: "http://example.node.url:8545"
+  account_address: "0x1234567890abcdef1234567890abcdef12345678"
 
-- openai_url: https://some-api-url/v1/
-  model_name: Compressa-Qwen2-72B-Instruct
-  experiment_name: "Qwen2-72B Long Input / Short Output"
+- model_name: Qwen/Qwen2.5-7B-Instruct
+  experiment_name: "Qwen2-7B Long Input / Short Output"
   description: "Experiment using prompts from a file with 20 tasks and 10 runners"
   prompts_file: resources/prompts.csv
   num_tasks: 20
@@ -83,6 +109,8 @@ Example of YAML file:
   num_prompts: 10
   prompt_length: 10000
   max_tokens: 100
+  node_url: "http://example.node.url:8545"
+  account_address: "0x1234567890abcdef1234567890abcdef12345678"
 ```
 
 ### 4. List experiments
@@ -93,7 +121,7 @@ For example:
 ```
 ❯ compressa-perf list \
     --show-metrics \
-    --param-filter openai_url=chat-2 \
+    --param-filter node_url=example \
     --param-filter avg_n_input=30
 
 List of Experiments:
@@ -154,7 +182,7 @@ Experiment Parameters:
 ├──────────────┼───────────────────────────────────────────┤
 │    num_tasks │                                         2 │
 ├──────────────┼───────────────────────────────────────────┤
-│   openai_url │ https://some-api-url.ru/chat-2/v1/ │
+│    node_url  │ http://example.node.url:8545          │
 ├──────────────┼───────────────────────────────────────────┤
 │  avg_n_input │                                        32 │
 ├──────────────┼───────────────────────────────────────────┤

@@ -355,22 +355,34 @@ def run_experiments_from_yaml(
     node_url: str = None,
     account_address: str = None,
     private_key_hex: str = None,
+    model_name: str = None,
 ):
-    if not node_url:
-        raise ValueError("node_url is not set")
-    if not account_address:
-        raise ValueError("account_address is not set")
     if not private_key_hex:
         raise ValueError("private_key_hex is not set")
 
     configs = load_yaml_configs(yaml_file)
 
     for config in configs:
+        # Use command-line node_url if provided, otherwise use from config
+        effective_node_url = node_url if node_url else config.node_url
+        if not effective_node_url:
+            raise ValueError("node_url is not set (neither in command line nor in config file)")
+
+        # Use command-line account_address if provided, otherwise use from config
+        effective_account_address = account_address if account_address else config.account_address
+        if not effective_account_address:
+            raise ValueError("account_address is not set (neither in command line nor in config file)")
+
+        # Use command-line model_name if provided, otherwise use from config
+        effective_model_name = model_name if model_name else config.model_name
+        if not effective_model_name:
+            raise ValueError("model_name is not set (neither in command line nor in config file)")
+
         run_experiment(
             db=db,
-            node_url=node_url,
-            model_name=config.model_name,
-            account_address=account_address,
+            node_url=effective_node_url,
+            model_name=effective_model_name,
+            account_address=effective_account_address,
             private_key_hex=private_key_hex,
             experiment_name=config.experiment_name,
             description=config.description,

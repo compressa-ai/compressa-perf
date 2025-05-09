@@ -69,7 +69,8 @@ def run_experiments_from_yaml_args(args):
         db=args.db,
         node_url=args.node_url,
         account_address=args.account_address,
-        private_key_hex=args.private_key_hex
+        private_key_hex=args.private_key_hex,
+        model_name=args.model_name
     )
 
 
@@ -99,9 +100,10 @@ Examples:
 1. Run experiment with prompts from a file:
     ```
     compressa-perf measure \\
-        --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \\
-        --api_key "${OPENAI_API_KEY}" \\
-        --model_name Compressa-Qwen2.5-14B-Instruct \\
+        --node_url http://example.node.url:8545 \\
+        --model_name Qwen/Qwen2.5-7B-Instruct \\
+        --account_address 0x1234567890abcdef1234567890abcdef12345678 \\
+        --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \\
         --experiment_name "File Prompts Run" \\
         --prompts_file resources/prompts.csv \\
         --num_tasks 1000 \\
@@ -110,9 +112,10 @@ Examples:
 2. Run experiment with generated prompts:
     ```
     compressa-perf measure \\
-        --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \\
-        --api_key "${OPENAI_API_KEY}" \\
-        --model_name Compressa-Qwen2.5-14B-Instruct \\
+        --node_url http://example.node.url:8545 \\
+        --model_name Qwen/Qwen2.5-7B-Instruct \\
+        --account_address 0x1234567890abcdef1234567890abcdef12345678 \\
+        --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \\
         --experiment_name "Generated Prompts Run" \\
         --num_tasks 2 \\
         --num_runners 2 \\
@@ -121,12 +124,43 @@ Examples:
         --prompt_length 5000
     ```
 
-3. List all experiments:
+3. Run experiments from a YAML configuration file:
+    ```
+    compressa-perf measure-from-yaml \\
+        --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \\
+        config.yml
+    ```
+
+4. Run experiments from a YAML configuration file with overridden node_url:
+    ```
+    compressa-perf measure-from-yaml \\
+        --node_url http://override.node.url:8545 \\
+        --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \\
+        config.yml
+    ```
+
+5. Run experiments from a YAML configuration file with overridden model_name:
+    ```
+    compressa-perf measure-from-yaml \\
+        --model_name Qwen/Qwen2.5-14B-Instruct \\
+        --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \\
+        config.yml
+    ```
+
+6. Run experiments from a YAML configuration file with overridden account_address:
+    ```
+    compressa-perf measure-from-yaml \\
+        --account_address 0x9876543210abcdef9876543210abcdef98765432 \\
+        --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \\
+        config.yml
+    ```
+
+7. List all experiments:
     ```
     compressa-perf list
     ```
 
-4. Generate a report for an experiment:
+8. Generate a report for an experiment:
     ```
     compressa-perf report <EXPERIMENT_ID>
     ```
@@ -267,14 +301,20 @@ Examples:
     parser_yaml.add_argument(
         "--node_url",
         type=str,
-        required=True,
-        help="Node URL",
+        required=False,
+        help="Node URL (overrides value in config.yml if provided)",
     )
     parser_yaml.add_argument(
         "--account_address",
         type=str,
-        required=True,
-        help="Account address",
+        required=False,
+        help="Account address (overrides value in config.yml if provided)",
+    )
+    parser_yaml.add_argument(
+        "--model_name",
+        type=str,
+        required=False,
+        help="Model name (overrides value in config.yml if provided)",
     )
     parser_yaml.add_argument(
         "--private_key_hex",
