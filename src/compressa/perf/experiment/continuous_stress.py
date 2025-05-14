@@ -35,14 +35,15 @@ class ContinuousStressTestRunner:
         db_path: str,
         node_url: str,
         model_name: str,
-        account_address: str,
-        private_key_hex: str,
-        experiment_id: int,
-        prompts: List[str],
-        num_runners: int,
-        max_tokens: int,
-        report_freq_min: float,
+        account_address: str = None,
+        private_key_hex: str = None,
+        experiment_id: int = None,
+        prompts: List[str] = None,
+        num_runners: int = 10,
+        max_tokens: int = 1000,
+        report_freq_min: float = 1.0,
         seed: int = 42,
+        no_sign: bool = False,
     ):
         self.db_path = db_path
         self.node_url = node_url
@@ -55,6 +56,7 @@ class ContinuousStressTestRunner:
         self.max_tokens = max_tokens
         self.report_freq_sec = report_freq_min * 60
         self.running = True
+        self.no_sign = no_sign
 
         self.experiment_start_ts = time.time()
         self.window_count = 1
@@ -73,6 +75,7 @@ class ContinuousStressTestRunner:
             model_name=self.model_name,
             account_address=self.account_address,
             private_key_hex=self.private_key_hex,
+            no_sign=self.no_sign,
         )
 
         self._store_continuous_params()
@@ -230,8 +233,11 @@ class ContinuousStressTestRunner:
             ("report_freq_min", str(int(self.report_freq_sec // 60))),
             ("model_name", self.model_name),
             ("node_url", self.node_url),
-            ("account_address", self.account_address),
+            ("no_sign", str(self.no_sign)),
         ]
+
+        if self.account_address:
+            param_list.append(("account_address", self.account_address))
         for k, v in param_list:
             p = Parameter(
                 id=None,

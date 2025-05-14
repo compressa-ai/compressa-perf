@@ -20,19 +20,26 @@ class _NodeClient:
     def __init__(
         self,
         node_url: str,
-        account_address: str,
-        private_key_hex: str,
+        account_address: str = None,
+        private_key_hex: str = None,
         timeout: float = 600.0,
         max_connections: int = 200,
+        no_sign: bool = False,
     ) -> None:
         self.node_url = node_url.rstrip("/")
         self.account_address = account_address
         self.timeout = timeout
+        self.no_sign = no_sign
 
-        # Deterministic signing key
-        self._signing_key = SigningKey.from_string(
-            bytes.fromhex(private_key_hex), curve=SECP256k1
-        )
+        # Deterministic signing key (only if signing is enabled)
+        if not self.no_sign:
+            if not account_address:
+                raise ValueError("account_address is required when signing is enabled")
+            if not private_key_hex:
+                raise ValueError("private_key_hex is required when signing is enabled")
+            self._signing_key = SigningKey.from_string(
+                bytes.fromhex(private_key_hex), curve=SECP256k1
+            )
 
         # Connection‑pooled requests session
         self._session = requests.Session()
@@ -87,9 +94,11 @@ class _NodeClient:
 
         headers = {
             "Content-Type": "application/json",
-            "Authorization": self._sign(payload_bytes),
-            "X-Requester-Address": self.account_address,
         }
+
+        if not self.no_sign:
+            headers["Authorization"] = self._sign(payload_bytes)
+            headers["X-Requester-Address"] = self.account_address
 
         resp = self._session.post(
             f"{self.node_url}/v1/chat/completions",

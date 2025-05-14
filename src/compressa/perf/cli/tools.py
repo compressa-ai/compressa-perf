@@ -112,13 +112,15 @@ def run_experiment(
     prompt_length: int = 100,
     max_tokens: int = 1000,
     seed: int = 42,
+    no_sign: bool = False,
 ):
     if not node_url:
         raise ValueError("node_url is not set")
-    if not account_address:
-        raise ValueError("account_address is not set")
-    if not private_key_hex:
-        raise ValueError("private_key_hex is not set")
+    if not no_sign:
+        if not account_address:
+            raise ValueError("account_address is not set (required when --no-sign is not used)")
+        if not private_key_hex:
+            raise ValueError("private_key_hex is not set (required when --no-sign is not used)")
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
@@ -131,6 +133,7 @@ def run_experiment(
             account_address=account_address,
             private_key_hex=private_key_hex,
             num_runners=num_runners,
+            no_sign=no_sign,
         )
 
         experiment = Experiment(
@@ -356,9 +359,10 @@ def run_experiments_from_yaml(
     account_address: str = None,
     private_key_hex: str = None,
     model_name: str = None,
+    no_sign: bool = False,
 ):
-    if not private_key_hex:
-        raise ValueError("private_key_hex is not set")
+    if not no_sign and not private_key_hex:
+        raise ValueError("private_key_hex is not set (required when --no-sign is not used)")
 
     configs = load_yaml_configs(yaml_file)
 
@@ -394,6 +398,7 @@ def run_experiments_from_yaml(
             prompt_length=config.prompt_length,
             max_tokens=config.max_tokens,
             seed=config.seed,
+            no_sign=no_sign,
         )
 
     list_experiments(db=db)
@@ -415,6 +420,7 @@ def run_continuous_stress_test(
     prompt_length: int,
     max_tokens: int,
     report_freq_min: float,
+    no_sign: bool = False,
 ):
     """
     Creates an Experiment, loads or generates prompts, and starts
@@ -422,10 +428,11 @@ def run_continuous_stress_test(
     """
     if not node_url:
         raise ValueError("node_url is not set")
-    if not account_address:
-        raise ValueError("account_address is not set")
-    if not private_key_hex:
-        raise ValueError("private_key_hex is not set")
+    if not no_sign:
+        if not account_address:
+            raise ValueError("account_address is not set (required when --no-sign is not used)")
+        if not private_key_hex:
+            raise ValueError("private_key_hex is not set (required when --no-sign is not used)")
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
@@ -460,6 +467,7 @@ def run_continuous_stress_test(
             num_runners=num_runners,
             max_tokens=max_tokens,
             report_freq_min=report_freq_min,
+            no_sign=no_sign,
         )
         runner.start_test()
 

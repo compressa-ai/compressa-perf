@@ -39,7 +39,8 @@ def run_experiment_args(args):
         generate_prompts=args.generate_prompts,
         num_prompts=args.num_prompts,
         prompt_length=args.prompt_length,
-        max_tokens=args.max_tokens
+        max_tokens=args.max_tokens,
+        no_sign=args.no_sign
     )
 
 
@@ -70,7 +71,8 @@ def run_experiments_from_yaml_args(args):
         node_url=args.node_url,
         account_address=args.account_address,
         private_key_hex=args.private_key_hex,
-        model_name=args.model_name
+        model_name=args.model_name,
+        no_sign=args.no_sign
     )
 
 
@@ -90,6 +92,7 @@ def run_continuous_stress_test_args(args):
         prompt_length=args.prompt_length,
         max_tokens=args.max_tokens,
         report_freq_min=args.report_freq_min,
+        no_sign=args.no_sign,
     )
 
 def main():
@@ -186,10 +189,13 @@ Examples:
         "--model_name", type=str, required=True, help="Model name"
     )
     parser_run.add_argument(
-        "--account_address", type=str, required=True, help="Account address"
+        "--account_address", type=str, required=False, help="Account address"
     )
     parser_run.add_argument(
-        "--private_key_hex", type=str, required=True, help="Private key hex"
+        "--private_key_hex", type=str, required=False, help="Private key hex"
+    )
+    parser_run.add_argument(
+        "--no-sign", action="store_true", help="Send requests without signing"
     )
     parser_run.add_argument(
         "--experiment_name", type=str, required=True, help="Name of the experiment"
@@ -319,8 +325,11 @@ Examples:
     parser_yaml.add_argument(
         "--private_key_hex",
         type=str,
-        required=True,
+        required=False,
         help="Private key hex",
+    )
+    parser_yaml.add_argument(
+        "--no-sign", action="store_true", help="Send requests without signing"
     )
     parser_yaml.set_defaults(func=run_experiments_from_yaml_args)
 
@@ -341,10 +350,13 @@ Examples:
         "--model_name", type=str, required=True, help="Model name"
     )
     parser_stress.add_argument(
-        "--account_address", type=str, required=True, help="Account address"
+        "--account_address", type=str, required=False, help="Account address"
     )
     parser_stress.add_argument(
-        "--private_key_hex", type=str, required=True, help="Private key hex"
+        "--private_key_hex", type=str, required=False, help="Private key hex"
+    )
+    parser_stress.add_argument(
+        "--no-sign", action="store_true", help="Send requests without signing"
     )
     parser_stress.add_argument(
         "--experiment_name", type=str, required=True, help="Name of the experiment"

@@ -34,14 +34,16 @@ class InferenceRunner:
         self,
         node_url: str,
         model_name: str,
-        account_address: str,
-        private_key_hex: str,
+        account_address: str = None,
+        private_key_hex: str = None,
+        no_sign: bool = False,
     ) -> None:
         self.model_name = model_name
         self._client = _NodeClient(
             node_url=node_url,
             account_address=account_address,
             private_key_hex=private_key_hex,
+            no_sign=no_sign,
         )
 
     # ---------------------------------------------------------------------
@@ -141,15 +143,17 @@ class ExperimentRunner:
         self,
         node_url: str,
         model_name: str,
-        account_address: str,
-        private_key_hex: str,
+        account_address: str = None,
+        private_key_hex: str = None,
         num_runners: int = 10,
+        no_sign: bool = False,
     ) -> None:
         self.node_url = node_url
         self.model_name = model_name
         self.account_address = account_address
         self.private_key_hex = private_key_hex
         self.num_runners = num_runners
+        self.no_sign = no_sign
 
     def _store_experiment_parameters(
         self,
@@ -163,8 +167,11 @@ class ExperimentRunner:
             ("node_url", self.node_url),
             ("max_tokens", str(max_tokens)),
             ("model_name", self.model_name),
-            ("requester_address", self.account_address),
+            ("no_sign", str(self.no_sign)),
         ]
+
+        if self.account_address:
+            params.append(("requester_address", self.account_address))
         for key, value in params:
             insert_parameter(
                 Parameter(id=None, experiment_id=experiment_id, key=key, value=value)
@@ -193,6 +200,7 @@ class ExperimentRunner:
                 self.model_name,
                 self.account_address,
                 self.private_key_hex,
+                no_sign=self.no_sign,
             )
             for _ in range(self.num_runners)
         ]
