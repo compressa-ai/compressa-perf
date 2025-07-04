@@ -96,6 +96,14 @@ def read_prompts_from_file(file_path, prompt_length):
     df = pd.read_csv(file_path, header=None)
     return df[0].map(lambda x: x[:prompt_length]).tolist()
 
+def save_report(result: dict, model_params: dict, report_path: str="experiment.csv"):
+    header = {"Parameter": "Value"}
+    data =  {**header, **model_params, **result}
+    df = pd.DataFrame.from_dict(data, orient='index')
+    df.to_csv(report_path)
+    logger.info(f"Experiment results saved to {report_path} file")
+    return report_path
+
 def run_experiment(
     db: str = DEFAULT_DB_PATH,
     api_key: str = None,
@@ -153,7 +161,8 @@ def run_experiment(
 
         db_writer.wait_for_write()
         analyzer = Analyzer(conn)
-        analyzer.compute_metrics(experiment.id)
+        metrics = analyzer.compute_metrics(experiment.id)
+        # save
         db_writer.wait_for_write()
         
         report_experiment(
@@ -362,6 +371,7 @@ def run_experiments_from_yaml(
             experiment_name=config.experiment_name,
             description=config.description,
             prompts_file=config.prompts_file,
+            report_file=config.report_file,
             num_tasks=config.num_tasks,
             num_runners=config.num_runners,
             generate_prompts=config.generate_prompts,

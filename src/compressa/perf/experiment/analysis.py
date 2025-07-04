@@ -275,6 +275,7 @@ class Analyzer:
                 value=str(value)
             )
             insert_parameter(param)
+        return metrics_dict
 
     def compute_metrics_for_measurements(
         self,
