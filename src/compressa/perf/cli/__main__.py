@@ -260,7 +260,7 @@ Examples:
     parser_yaml.add_argument(
         "--api_key",
         type=str,
-        required=True,
+        required=False,
         help="OpenAI API key",
     )
     parser_yaml.set_defaults(func=run_experiments_from_yaml_args)

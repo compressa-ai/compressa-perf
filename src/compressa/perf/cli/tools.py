@@ -22,6 +22,7 @@ from compressa.perf.db.setup import (
     stop_db_writer,
     get_db_writer,
 )
+from compressa.perf.cli.pdf_tools import report_to_pdf
 import datetime
 import sys
 import random
@@ -97,21 +98,32 @@ def read_prompts_from_file(file_path, prompt_length):
     df = pd.read_csv(file_path, header=None)
     return df[0].map(lambda x: x[:prompt_length]).tolist()
 
-def save_report(result: dict, model_params: dict, report_path: str="experiment.csv") -> str:
-    header = {"Parameter": "Value"}
-    data =  {**header, **model_params, **result}
-    df = pd.DataFrame.from_dict(data, orient='index')
-    df.to_csv(report_path)
-    logger.info(f"Experiment results saved to {report_path} file")
+def save_report(_result: dict, model_params: dict, report_path: str) -> str:
+    result = {k: round(v, 3) for k, v in zip(_result.keys(), _result.values())}
+    date = datetime.datetime.today().strftime('%d.%m.%Y')
+    data =  {**model_params, **result}
+    df = pd.DataFrame.from_dict(data, orient='index').reset_index()
+    df.columns = ["Parameter", "Value"]
+    df.to_csv(f"{report_path}_{date}.csv", index=False)
+    logger.info(f"Experiment results saved to {report_path}_{date}.csv file")
+    with open(f"{report_path}_{date}.md", 'w') as md:
+        df.to_markdown(buf=md, tablefmt="grid")
+    logger.info(f"Experiment results saved to {report_path}_{date}.md file")
+    report_to_pdf(df, f"{report_path}_{date}.pdf")
+    logger.info(f"Experiment results saved to {report_path}_{date}.pdf file")
     return report_path
 
 def get_model_info(url: str) -> dict:
-    model_data = requests.get(f"{url}/models")
+    result = {}
+    r = requests.get(f"{url}models")
     if r.status_code != 200:
         logger.error(f"Model params request failed - {r.status_code}")
         return {}
     data = r.json()["data"][0]
-    return data
+    result["MODEL"] = data["id"]
+    result["ENGINE"] = data["owned_by"]
+    result["MAX_MODEL_LENGTH"] = data["max_model_len"] 
+    return result
 
 def run_experiment(
     db: str = DEFAULT_DB_PATH,
@@ -121,6 +133,7 @@ def run_experiment(
     experiment_name: str = None,
     description: str = None,
     prompts_file: str = None,
+    report_file: str = None,
     num_tasks: int = 100,
     num_runners: int = 10,
     generate_prompts: bool = False,
@@ -172,7 +185,10 @@ def run_experiment(
         analyzer = Analyzer(conn)
         metrics = analyzer.compute_metrics(experiment.id)
         model_info = get_model_info(openai_url)
-        saved_csv = save_report(metrics, model_info)
+        if report_file:
+            saved_report = save_report(metrics, model_info, report_file)
+        else:
+            logger.warning(f"No path to the report file")
         db_writer.wait_for_write()
         
         report_experiment(
@@ -375,7 +391,7 @@ def run_experiments_from_yaml(
     for config in configs:
         run_experiment(
             db=db,
-            api_key=api_key,
+            api_key=config.api_key,
             openai_url=config.openai_url,
             model_name=config.model_name,
             experiment_name=config.experiment_name,
