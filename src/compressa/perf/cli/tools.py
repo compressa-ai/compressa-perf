@@ -146,10 +146,12 @@ def run_experiment(
 ):
     if not api_key:
         raise ValueError("OPENAI_API_KEY is not set")
+    print(report_mode)
     if report_mode not in ["pdf", "md", "csv"]:
         raise ValueError("Unknown report mode")
     if not report_mode:
         report_mode = "pdf"
+        logger.warning(f"Default report mode - .pdf")
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
@@ -192,7 +194,7 @@ def run_experiment(
         metrics = analyzer.compute_metrics(experiment.id)
         model_info = get_model_info(openai_url)
         if report_file:
-            saved_report = save_report(metrics, model_info, report_file)
+            saved_report = save_report(metrics, model_info, report_file, report_mode)
         else:
             logger.warning(f"No path to the report file")
         db_writer.wait_for_write()
@@ -404,6 +406,7 @@ def run_experiments_from_yaml(
             description=config.description,
             prompts_file=config.prompts_file,
             report_file=config.report_file,
+            report_mode=config.report_mode,
             num_tasks=config.num_tasks,
             num_runners=config.num_runners,
             generate_prompts=config.generate_prompts,
