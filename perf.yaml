@@ -1,4 +1,5 @@
 - openai_url: http://localhost:5000/v1/
+  api key: ${OPENAI_API_KEY}
   model_name: Compressa-LLM
   experiment_name: "File Prompts Run 1"
   description: "Experiment using prompts from a file with 10 tasks and 5 runners"

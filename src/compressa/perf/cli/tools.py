@@ -1,6 +1,7 @@
 import sqlite3
 from tabulate import tabulate
 from typing import List
+import requests
 
 import pandas as pd
 
@@ -96,13 +97,21 @@ def read_prompts_from_file(file_path, prompt_length):
     df = pd.read_csv(file_path, header=None)
     return df[0].map(lambda x: x[:prompt_length]).tolist()
 
-def save_report(result: dict, model_params: dict, report_path: str="experiment.csv"):
+def save_report(result: dict, model_params: dict, report_path: str="experiment.csv") -> str:
     header = {"Parameter": "Value"}
     data =  {**header, **model_params, **result}
     df = pd.DataFrame.from_dict(data, orient='index')
     df.to_csv(report_path)
     logger.info(f"Experiment results saved to {report_path} file")
     return report_path
+
+def get_model_info(url: str) -> dict:
+    model_data = requests.get(f"{url}/models")
+    if r.status_code != 200:
+        logger.error(f"Model params request failed - {r.status_code}")
+        return {}
+    data = r.json()["data"][0]
+    return data
 
 def run_experiment(
     db: str = DEFAULT_DB_PATH,
@@ -162,7 +171,8 @@ def run_experiment(
         db_writer.wait_for_write()
         analyzer = Analyzer(conn)
         metrics = analyzer.compute_metrics(experiment.id)
-        # save
+        model_info = get_model_info(openai_url)
+        saved_csv = save_report(metrics, model_info)
         db_writer.wait_for_write()
         
         report_experiment(
@@ -357,8 +367,8 @@ def run_experiments_from_yaml(
     db: str = DEFAULT_DB_PATH,
     api_key: str = None,
 ):
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY is not set")
+    # if not api_key:
+    #     raise ValueError("OPENAI_API_KEY is not set")
 
     configs = load_yaml_configs(yaml_file)
     
