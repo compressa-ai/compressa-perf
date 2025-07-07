@@ -157,6 +157,12 @@ Examples:
         "--prompts_file", type=str, help="Path to the file containing prompts (separated by newlines)"
     )
     parser_run.add_argument(
+        "--report_file", type=str, help="Path to the file to save report"
+    )
+    parser_run.add_argument(
+        "--report_mode", type=str, help="Extension of the report file (.md, .csv or .pdf)"
+    )
+    parser_run.add_argument(
         "--num_tasks", type=int, default=100, help="Number of requests to send"
     )
     parser_run.add_argument(

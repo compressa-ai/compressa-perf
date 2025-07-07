@@ -20,6 +20,7 @@ class ExperimentConfig:
     max_tokens: int = None
     prompts_file: str = None
     report_file: str = None
+    report_mode: str = "pdf"
     seed: int = 42
 
 def load_yaml_configs(file_path: str) -> List[ExperimentConfig]:

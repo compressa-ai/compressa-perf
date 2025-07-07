@@ -98,19 +98,20 @@ def read_prompts_from_file(file_path, prompt_length):
     df = pd.read_csv(file_path, header=None)
     return df[0].map(lambda x: x[:prompt_length]).tolist()
 
-def save_report(_result: dict, model_params: dict, report_path: str) -> str:
+def save_report(_result: dict, model_params: dict, report_path: str, report_mode: str) -> str:
     result = {k: round(v, 3) for k, v in zip(_result.keys(), _result.values())}
     date = datetime.datetime.today().strftime('%d.%m.%Y')
     data =  {**model_params, **result}
     df = pd.DataFrame.from_dict(data, orient='index').reset_index()
     df.columns = ["Parameter", "Value"]
-    df.to_csv(f"{report_path}_{date}.csv", index=False)
-    logger.info(f"Experiment results saved to {report_path}_{date}.csv file")
-    with open(f"{report_path}_{date}.md", 'w') as md:
-        df.to_markdown(buf=md, tablefmt="grid")
-    logger.info(f"Experiment results saved to {report_path}_{date}.md file")
-    report_to_pdf(df, f"{report_path}_{date}.pdf")
-    logger.info(f"Experiment results saved to {report_path}_{date}.pdf file")
+    if report_mode == "csv":
+        df.to_csv(f"{report_path}_{date}.{report_mode}", index=False)
+    elif report_mode == "md":
+        with open(f"{report_path}_{date}.{report_mode}", 'w') as md:
+            df.to_markdown(buf=md, tablefmt="grid")
+    else:
+        report_to_pdf(df, f"{report_path}_{date}.{report_mode}")
+    logger.info(f"Experiment results saved to {report_path}_{date}.{report_mode} file")
     return report_path
 
 def get_model_info(url: str) -> dict:
@@ -134,6 +135,7 @@ def run_experiment(
     description: str = None,
     prompts_file: str = None,
     report_file: str = None,
+    report_mode: str = "pdf",
     num_tasks: int = 100,
     num_runners: int = 10,
     generate_prompts: bool = False,
@@ -144,6 +146,10 @@ def run_experiment(
 ):
     if not api_key:
         raise ValueError("OPENAI_API_KEY is not set")
+    if report_mode not in ["pdf", "md", "csv"]:
+        raise ValueError("Unknown report mode")
+    if not report_mode:
+        report_mode = "pdf"
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
