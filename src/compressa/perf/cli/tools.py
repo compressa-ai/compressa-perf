@@ -156,12 +156,9 @@ def run_experiment(
         analyzer.compute_metrics(experiment.id)
         db_writer.wait_for_write()
         
-        report_experiment(
-            experiment_id=experiment.id,
-            db=db,
-            recompute=False
-        )
         stop_db_writer()
+        
+        return experiment.id
 
 
 def report_experiment(
@@ -352,9 +349,11 @@ def run_experiments_from_yaml(
         raise ValueError("OPENAI_API_KEY is not set")
 
     configs = load_yaml_configs(yaml_file)
+    experiment_ids = []
     
     for config in configs:
-        run_experiment(
+        # Run each experiment and collect the experiment ID
+        experiment_id = run_experiment(
             db=db,
             api_key=api_key,
             openai_url=config.openai_url,
@@ -369,6 +368,15 @@ def run_experiments_from_yaml(
             prompt_length=config.prompt_length,
             max_tokens=config.max_tokens,
             seed=config.seed,
+        )
+        experiment_ids.append(experiment_id)
+    
+    # Report all experiments after completion
+    for experiment_id in experiment_ids:
+        report_experiment(
+            experiment_id=experiment_id,
+            db=db,
+            recompute=False
         )
     
     list_experiments(db=db)
