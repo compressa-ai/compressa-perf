@@ -1,6 +1,8 @@
 from typing import List, Optional
 import datetime
 from datetime import datetime
+import sqlite3
+
 
 from compressa.perf.db.setup import get_db_writer
 from compressa.perf.data.models import (
@@ -12,6 +14,11 @@ from compressa.perf.data.models import (
     Status,
 )
 
+from compressa.utils import get_logger
+
+DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
+
+logger = get_logger(__name__)
 
 def insert_parameter(parameter: Parameter) -> int:
     db_writer = get_db_writer()
@@ -47,7 +54,11 @@ def insert_measurement(measurement: Measurement) -> int:
 def fetch_all_experiments(conn) -> List[Experiment]:
     sql = "SELECT * FROM Experiments ORDER BY experiment_date DESC"
     cur = conn.cursor()
-    cur.execute(sql)
+    try:
+        cur.execute(sql)
+    except sqlite3.OperationalError:
+        logger.warning("Database connection failed")
+        return []
     rows = cur.fetchall()
     return [
         Experiment(
@@ -63,9 +74,13 @@ def fetch_all_experiments(conn) -> List[Experiment]:
 def fetch_metrics_by_experiment(conn, experiment_id: int) -> List[Metric]:
     sql = "SELECT * FROM Metrics WHERE experiment_id = ?"
     cur = conn.cursor()
-    cur.execute(sql, (experiment_id,))
-    rows = cur.fetchall()
     metrics = []
+    try:
+        cur.execute(sql, (experiment_id,))
+    except sqlite3.OperationalError:
+        logger.warning("Database connection failed")
+        return metrics
+    rows = cur.fetchall()
     for row in rows:
         metrics.append(
             Metric(
@@ -81,12 +96,20 @@ def fetch_metrics_by_experiment(conn, experiment_id: int) -> List[Metric]:
 def clear_metrics_by_experiment(conn, experiment_id: int) -> None:
     sql = "DELETE FROM Metrics WHERE experiment_id = ?"
     with conn:
-        conn.execute(sql, (experiment_id,))
+        try:
+            conn.execute(sql, (experiment_id,))
+        except sqlite3.OperationalError:
+            logger.warning("Database connection failed")
+        
 
 def fetch_parameters_by_experiment(conn, experiment_id: int) -> List[Parameter]:
     sql = "SELECT * FROM Parameters WHERE experiment_id = ?"
     cur = conn.cursor()
-    cur.execute(sql, (experiment_id,))
+    try:
+        cur.execute(sql, (experiment_id,))
+    except sqlite3.OperationalError:
+        logger.warning("Database connection failed")
+        return []
     rows = cur.fetchall()
     return [Parameter(*row) for row in rows]
 
@@ -94,9 +117,13 @@ def fetch_parameters_by_experiment(conn, experiment_id: int) -> List[Parameter]:
 def fetch_measurements_by_experiment(conn, experiment_id: int) -> List[Measurement]:
     sql = "SELECT * FROM Measurements WHERE experiment_id = ?"
     cur = conn.cursor()
-    cur.execute(sql, (experiment_id,))
-    rows = cur.fetchall()
     measurements = []
+    try:
+        cur.execute(sql, (experiment_id,))
+    except sqlite3.OperationalError:
+        logger.warning("Database connection failed")
+        return measurements
+    rows = cur.fetchall()
     for row in rows:
         measurements.append(Measurement(
             id=row[0],
@@ -114,7 +141,11 @@ def fetch_measurements_by_experiment(conn, experiment_id: int) -> List[Measureme
 def fetch_experiment_by_id(conn, experiment_id: int) -> Optional[Experiment]:
     sql = "SELECT * FROM Experiments WHERE id = ?"
     cur = conn.cursor()
-    cur.execute(sql, (experiment_id,))
+    try:
+        cur.execute(sql, (experiment_id,))
+    except sqlite3.OperationalError:
+        logger.warning("Database connection failed")
+        return None
     row = cur.fetchone()
     if row:
         return Experiment(

@@ -29,10 +29,13 @@ def run_experiment_args(args):
         db=args.db,
         api_key=args.api_key,
         openai_url=args.openai_url,
+        serv_api_url=args.serv_api_url,
         model_name=args.model_name,
         experiment_name=args.experiment_name,
         description=args.description,
         prompts_file=args.prompts_file,
+        report_file=args.report_file,
+        report_mode=args.report_mode,
         num_tasks=args.num_tasks,
         num_runners=args.num_runners,
         generate_prompts=args.generate_prompts,
@@ -79,6 +82,9 @@ def run_continuous_stress_test_args(args):
         experiment_name=args.experiment_name,
         description=args.description,
         prompts_file=args.prompts_file,
+        serv_api_url=args.serv_api_url,
+        report_file=args.report_file,
+        report_mode=args.report_mode,
         num_runners=args.num_runners,
         generate_prompts=args.generate_prompts,
         num_prompts=args.num_prompts,
@@ -143,6 +149,9 @@ Examples:
     )
     parser_run.add_argument(
         "--openai_url", type=str, required=True, help="OpenAI-compatible API URL"
+    )
+    parser_run.add_argument(
+        "--serv_api_url", type=str, help="Compressa Platform API URL"
     )
     parser_run.add_argument(
         "--model_name", type=str, required=True, help="Model name"
@@ -285,6 +294,9 @@ Examples:
         "--openai_url", type=str, required=True, help="OpenAI-compatible API URL"
     )
     parser_stress.add_argument(
+        "--serv_api_url", type=str, help="Compressa Platform API URL"
+    )
+    parser_stress.add_argument(
         "--model_name", type=str, required=True, help="Model name"
     )
     parser_stress.add_argument(
@@ -295,6 +307,12 @@ Examples:
     )
     parser_stress.add_argument(
         "--prompts_file", type=str, help="File containing prompts"
+    )
+    parser_stress.add_argument(
+        "--report_file", type=str, help="Path to the file to save report"
+    )
+    parser_stress.add_argument(
+        "--report_mode", type=str, help="Extension of the report file (.md, .csv or .pdf)"
     )
     parser_stress.add_argument(
         "--num_runners", type=int, default=10, help="Number of concurrent runners"

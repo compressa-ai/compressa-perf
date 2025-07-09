@@ -8,6 +8,7 @@ from dataclasses import dataclass
 @dataclass
 class ExperimentConfig:
     openai_url: str
+    serv_api_url: str
     api_key: str
     model_name: str
     experiment_name: str

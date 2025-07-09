@@ -9,6 +9,7 @@ It uses the OpenAI API to run inference tasks and stores the results in a SQLite
 git clone https://github.com/compressa-ai/compressa-perf.git
 cd compressa-perf
 poetry install
+$(poetry env activate)
 ```
 
 ## Install with Pip

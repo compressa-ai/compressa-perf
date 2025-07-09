@@ -98,19 +98,29 @@ def read_prompts_from_file(file_path, prompt_length):
     df = pd.read_csv(file_path, header=None)
     return df[0].map(lambda x: x[:prompt_length]).tolist()
 
-def save_report(_result: dict, model_params: dict, report_path: str, report_mode: str) -> str:
+def save_report(parameters, _result: dict, model_params: dict, hw_params: dict, report_path: str, report_mode: str) -> str:
     result = {k: round(v, 3) for k, v in zip(_result.keys(), _result.values())}
     date = datetime.datetime.today().strftime('%d.%m.%Y')
-    data =  {**model_params, **result}
-    df = pd.DataFrame.from_dict(data, orient='index').reset_index()
-    df.columns = ["Parameter", "Value"]
+    exp_df = pd.DataFrame.from_dict(parameters, orient='index').reset_index()
+    model_data =  {**model_params, **hw_params}
+    model_df = pd.DataFrame.from_dict(model_data, orient='index').reset_index()
+    result_df = pd.DataFrame.from_dict(result, orient='index').reset_index()
+    result_df.columns = ["Metric", "Value"]
+    model_df.columns = ["Model Parameter", "Value"]
+    exp_df.columns = ["Experiment Parameter", "Value"]
     if report_mode == "csv":
-        df.to_csv(f"{report_path}_{date}.{report_mode}", index=False)
+        model_df.to_csv(f"{report_path}_model_info_{date}.{report_mode}", index=False)
+        result_df.to_csv(f"{report_path}_metrics_{date}.{report_mode}", index=False)
+        exp_df.to_csv(f"{report_path}_experiment_parameters_{date}.{report_mode}", index=False)
     elif report_mode == "md":
-        with open(f"{report_path}_{date}.{report_mode}", 'w') as md:
-            df.to_markdown(buf=md, tablefmt="grid")
+        with open(f"{report_path}_model_info_{date}.{report_mode}", 'w') as md:
+            model_df.to_markdown(buf=md, tablefmt="grid")
+        with open(f"{report_path}_metrics_{date}.{report_mode}", 'w') as md:
+            result_df.to_markdown(buf=md, tablefmt="grid")
+        with open(f"{report_path}_experiment_parameters_{date}.{report_mode}", 'w') as md:
+            exp_df.to_markdown(buf=md, tablefmt="grid")
     else:
-        report_to_pdf(df, f"{report_path}_{date}.{report_mode}")
+        report_to_pdf([model_df, exp_df, result_df], f"{report_path}_{date}.{report_mode}")
     logger.info(f"Experiment results saved to {report_path}_{date}.{report_mode} file")
     return report_path
 
@@ -126,10 +136,23 @@ def get_model_info(url: str) -> dict:
     result["MAX_MODEL_LENGTH"] = data["max_model_len"] 
     return result
 
+def get_hw_info(url: str) -> dict:
+    result = {}
+    r = requests.get(f"{url}gpu_info")
+    if r.status_code != 200:
+        logger.error(f"Hardware params request failed - {r.status_code}")
+        return {"DRIVER VERSION": "unknown",
+                           "CUDA VERSION": "unknown",
+                           "HARDWARE": "unknown",
+                }
+    data = r.json()
+    return data
+
 def run_experiment(
     db: str = DEFAULT_DB_PATH,
     api_key: str = None,
     openai_url: str = None,
+    serv_api_url: str = None,
     model_name: str = None,
     experiment_name: str = None,
     description: str = None,
@@ -146,12 +169,14 @@ def run_experiment(
 ):
     if not api_key:
         raise ValueError("OPENAI_API_KEY is not set")
-    print(report_mode)
-    if report_mode not in ["pdf", "md", "csv"]:
-        raise ValueError("Unknown report mode")
     if not report_mode:
         report_mode = "pdf"
         logger.warning(f"Default report mode - .pdf")
+    if report_mode not in ["pdf", "md", "csv"]:
+        raise ValueError("Unknown report mode")
+    if not report_file:
+        report_file = "experiment_report"
+        logger.warning(f"Default report file name - experiment_report")
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
@@ -191,12 +216,25 @@ def run_experiment(
 
         db_writer.wait_for_write()
         analyzer = Analyzer(conn)
-        metrics = analyzer.compute_metrics(experiment.id)
-        model_info = get_model_info(openai_url)
-        if report_file:
-            saved_report = save_report(metrics, model_info, report_file, report_mode)
+        metrics, _io_stats = analyzer.compute_metrics(experiment.id)
+        _parameters = {
+            "NUM_WORKERS": num_runners,
+            "NUM_TASKS": num_tasks,
+            "OPENAI_URL": openai_url,
+            "MAX_TOKENS": max_tokens,
+            "MODEL_NAME": model_name,
+        }
+        io_stats = {k.upper(): round(v, 2) for k, v in zip(_io_stats.keys(), _io_stats.values())}
+        parameters = {**_parameters, **io_stats}
+        if not serv_api_url:
+            logger.warning(f"No Compressa Platform API provided")
+            hw_info = {"DRIVER VERSION": "unknown",
+                       "CUDA VERSION": "unknown",
+                       "HARDWARE": "unknown",}
         else:
-            logger.warning(f"No path to the report file")
+            hw_info = get_hw_info(serv_api_url)
+        model_info = get_model_info(openai_url)
+        saved_report = save_report(parameters, metrics, model_info, hw_info, report_file, report_mode)
         db_writer.wait_for_write()
         
         report_experiment(
@@ -213,14 +251,19 @@ def report_experiment(
     recompute: bool = False,
 ):
     with sqlite3.connect(db) as conn:
-        ensure_db_initialized(conn)
-        start_db_writer(db)
-        db_writer = get_db_writer()
+        try:
+            ensure_db_initialized(conn)
+            start_db_writer(db)
+            db_writer = get_db_writer()
         
-        experiment = fetch_experiment_by_id(conn, experiment_id)
+            experiment = fetch_experiment_by_id(conn, experiment_id)
+        except sqlite3.OperationalError:
+            logger.warning("Database connection failed")
+            experiment = None
         if not experiment:
-            print(f"Error: Experiment with ID {experiment_id} not found.")
-            sys.exit(1)
+            logger.error(f"Error: Experiment with ID {experiment_id} not found.")
+            # sys.exit(1)
+            return
 
         analyzer = Analyzer(conn)
         
@@ -401,6 +444,7 @@ def run_experiments_from_yaml(
             db=db,
             api_key=config.api_key,
             openai_url=config.openai_url,
+            serv_api_url=config.serv_api_url,
             model_name=config.model_name,
             experiment_name=config.experiment_name,
             description=config.description,
