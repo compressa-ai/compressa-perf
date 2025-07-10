@@ -102,10 +102,13 @@ Examples:
     ```
     compressa-perf measure \\
         --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \\
+        --serv_api_url "${SERV_API_URL}" \\
         --api_key "${OPENAI_API_KEY}" \\
         --model_name Compressa-Qwen2.5-14B-Instruct \\
         --experiment_name "File Prompts Run" \\
         --prompts_file resources/prompts.csv \\
+        --report_file experiment \\
+        --report_mode pdf \\
         --num_tasks 1000 \\
         --num_runners 100
     ```
@@ -113,11 +116,14 @@ Examples:
     ```
     compressa-perf measure \\
         --openai_url https://api.qdrant.mil-team.ru/chat-2/v1/ \\
+        --serv_api_url "${SERV_API_URL}" \\
         --api_key "${OPENAI_API_KEY}" \\
         --model_name Compressa-Qwen2.5-14B-Instruct \\
         --experiment_name "Generated Prompts Run" \\
         --num_tasks 2 \\
         --num_runners 2 \\
+        --report_file experiment \\
+        --report_mode pdf \\
         --generate_prompts \\
         --num_prompts 1000 \\
         --prompt_length 5000
