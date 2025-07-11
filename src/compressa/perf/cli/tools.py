@@ -132,8 +132,8 @@ def get_model_info(url: str) -> dict:
         return {}
     data = r.json()["data"][0]
     result["MODEL"] = data["id"]
-    result["ENGINE"] = data["owned_by"]
-    result["MAX_MODEL_LENGTH"] = data["max_model_len"] 
+    result["ENGINE"] = data.get("owned_by", "")
+    result["MAX_MODEL_LENGTH"] = data.get("max_model_len", "")
     return result
 
 def get_hw_info(url: str) -> dict:
@@ -178,7 +178,9 @@ def run_experiment(
         report_file = "experiment_report"
         logger.warning(f"Default report file name - experiment_report")
 
-    with sqlite3.connect(db) as conn:
+    with sqlite3.connect(db, timeout=10.0) as conn:
+        # conn.execute("PRAGMA journal_mode=MEMORY;")
+        # conn.execute("PRAGMA journal_mode=WAL;")
         create_tables(conn)
         start_db_writer(db)
         db_writer = get_db_writer()
@@ -220,9 +222,7 @@ def run_experiment(
         _parameters = {
             "NUM_WORKERS": num_runners,
             "NUM_TASKS": num_tasks,
-            "OPENAI_URL": openai_url,
             "MAX_TOKENS": max_tokens,
-            "MODEL_NAME": model_name,
         }
         io_stats = {k.upper(): round(v, 2) for k, v in zip(_io_stats.keys(), _io_stats.values())}
         parameters = {**_parameters, **io_stats}
@@ -233,16 +233,21 @@ def run_experiment(
                        "HARDWARE": "unknown",}
         else:
             hw_info = get_hw_info(serv_api_url)
+        hw_info["OPENAI_URL"] = openai_url
         model_info = get_model_info(openai_url)
         saved_report = save_report(parameters, metrics, model_info, hw_info, report_file, report_mode)
         db_writer.wait_for_write()
-        
-        report_experiment(
-            experiment_id=experiment.id,
-            db=db,
-            recompute=False
-        )
         stop_db_writer()
+
+
+    report_experiment(
+        experiment_id=experiment.id,
+        db=db,
+        recompute=False
+    )
+    
+    
+    return experiment.id
 
 
 def report_experiment(
@@ -250,12 +255,11 @@ def report_experiment(
     db: str = DEFAULT_DB_PATH,
     recompute: bool = False,
 ):
-    with sqlite3.connect(db) as conn:
+    with sqlite3.connect(db, timeout=10.0) as conn:
         try:
             ensure_db_initialized(conn)
             start_db_writer(db)
             db_writer = get_db_writer()
-        
             experiment = fetch_experiment_by_id(conn, experiment_id)
         except sqlite3.OperationalError:
             logger.warning("Database connection failed")
@@ -270,7 +274,6 @@ def report_experiment(
         if recompute:
             clear_metrics_by_experiment(conn, experiment_id)
             analyzer.compute_metrics(experiment_id)
-        
         parameters = fetch_parameters_by_experiment(conn, experiment_id)
         metrics = fetch_metrics_by_experiment(conn, experiment_id)
         
@@ -312,7 +315,7 @@ def list_experiments(
     recompute: bool = False,
     csv_file: str = None,
 ):
-    with sqlite3.connect(db) as conn:
+    with sqlite3.connect(db, timeout=10.0) as conn:
         ensure_db_initialized(conn)
 
         experiments = fetch_all_experiments(conn)
@@ -438,9 +441,9 @@ def run_experiments_from_yaml(
     #     raise ValueError("OPENAI_API_KEY is not set")
 
     configs = load_yaml_configs(yaml_file)
-    
+    experiment_ids = []
     for config in configs:
-        run_experiment(
+        experiment_id = run_experiment(
             db=db,
             api_key=config.api_key,
             openai_url=config.openai_url,
@@ -459,6 +462,15 @@ def run_experiments_from_yaml(
             max_tokens=config.max_tokens,
             seed=config.seed,
         )
+        experiment_ids.append(experiment_id)
+
+    # Report all experiments after completion
+    # for experiment_id in experiment_ids:
+    #     report_experiment(
+    #         experiment_id=experiment_id,
+    #         db=db,
+    #         recompute=False
+    #     )
     
     list_experiments(db=db)
 
@@ -486,7 +498,7 @@ def run_continuous_stress_test(
     if not api_key:
         raise ValueError("OPENAI_API_KEY is not set")
 
-    with sqlite3.connect(db) as conn:
+    with sqlite3.connect(db, timeout=10.0) as conn:
         create_tables(conn)
         start_db_writer(db)
         db_writer = get_db_writer()

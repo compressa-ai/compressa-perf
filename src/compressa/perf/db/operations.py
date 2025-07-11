@@ -34,7 +34,6 @@ def insert_metric(metric: Metric) -> int:
     db_writer = get_db_writer()
     if db_writer is None:
         raise ValueError("DB writer is not initialized")
-    
     db_writer.push_metric(metric)
     return -1
 
@@ -92,6 +91,7 @@ def fetch_metrics_by_experiment(conn, experiment_id: int) -> List[Metric]:
             )
         )
     return metrics
+
 
 def clear_metrics_by_experiment(conn, experiment_id: int) -> None:
     sql = "DELETE FROM Metrics WHERE experiment_id = ?"
