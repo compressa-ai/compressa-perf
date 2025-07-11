@@ -249,11 +249,15 @@ class Analyzer:
     def compute_metrics(self, experiment_id: int):
         measurements = fetch_measurements_by_experiment(self.conn, experiment_id)
         if not measurements:
-            raise ValueError(f"No measurements found for experiment_id {experiment_id}")
+            # raise ValueError(f"No measurements found for experiment_id {experiment_id}")
+            logger.error(f"No measurements found for experiment_id {experiment_id}")
+            return {"": 0}, {"": 0}
 
         metrics_dict, io_stats = self.compute_metrics_for_measurements(measurements)
         if not metrics_dict:
-            raise ValueError(f"No successful measurements found for experiment_id {experiment_id}")
+            # raise ValueError(f"No successful measurements found for experiment_id {experiment_id}")
+            logger.error(f"No successful measurements found for experiment_id {experiment_id}")
+            return {"": 0}, {"": 0}
 
         from datetime import datetime
         now = datetime.now()
@@ -266,6 +270,7 @@ class Analyzer:
                 timestamp=now
             )
             insert_metric(metric)
+            # self.conn.commit()
 
         for key, value in io_stats.items():
             param = Parameter(
@@ -275,6 +280,9 @@ class Analyzer:
                 value=str(value)
             )
             insert_parameter(param)
+            # self.conn.commit()
+
+        return metrics_dict, io_stats
 
     def compute_metrics_for_measurements(
         self,
@@ -289,7 +297,7 @@ class Analyzer:
         If no measurements exist or all are invalid, returns two empty dicts.
         """
         if not measurements:
-            return {}, {}
+            return {"": 0}, {"": 0}
 
         average_ttft = self.compute_average_ttft(measurements)
         q95_ttft = self.compute_q95_ttft(measurements)

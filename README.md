@@ -9,6 +9,7 @@ It uses the OpenAI API to run inference tasks and stores the results in a SQLite
 git clone https://github.com/compressa-ai/compressa-perf.git
 cd compressa-perf
 poetry install
+$(poetry env activate)
 ```
 
 ## Install with Pip
@@ -23,11 +24,15 @@ pip install compressa-perf
 
 ```bash
 ❯ compressa-perf measure \
-    --openai_url https://some-api-url.ru/chat-2/v1/ \
+    --db some_db.sqlite \
+    --openai_url https://some-api-url.ru/ \
+    --serv_api_url https://service-api-url.ru/ \
     --api_key "${OPENAI_API_KEY}" \
     --model_name Compressa-Qwen2.5-14B-Instruct \
     --experiment_name "File Prompts Run" \
     --prompts_file resources/prompts.csv \
+    --report_file results/experiment \
+    --report_mode pdf \
     --num_tasks 1000 \
     --num_runners 100
 ```
@@ -36,7 +41,9 @@ pip install compressa-perf
 
 ```bash
 ❯ compressa-perf measure \
+    --db some_db.sqlite \
     --openai_url https://some-api-url.ru/chat-2/v1/ \
+    --serv_api_url https://service-api-url.ru/ \
     --api_key "${OPENAI_API_KEY}" \
     --model_name Compressa-Qwen2.5-14B-Instruct \
     --experiment_name "Generated Prompts Run" \
@@ -44,6 +51,8 @@ pip install compressa-perf
     --num_runners 2 \
     --generate_prompts \
     --num_prompts 1000 \
+    --report_file results/experiment \
+    --report_mode pdf \
     --prompt_length 5000
 ```
 
@@ -54,29 +63,38 @@ Full parameter list can be obtained with `compressa-perf measure -h`.
 You can describe set of experiments in YAML file and run them on different services in one command:
 
 ```bash
-❯ compressa-perf measure-from-yaml experiments.yaml
+❯ compressa-perf measure-from-yaml experiments.yaml \
+    --db some_db.sqlite \
 ```
 
 Example of YAML file:
 
 ```yaml
-- openai_url: https://some-api-url/v1/
-  model_name: Compressa-Qwen2-72B-Instruct
+- openai_url: http://localhost:5000/v1/
+  serv_api_url: http://localhost:5100/v1/
+  api_key: ${OPENAI_API_KEY}
+  model_name: Compressa-LLM
   experiment_name: "File Prompts Run 1"
-  description: "Experiment using prompts from a file with 10 tasks and 5 runners"
+  description: "Experiment using prompts from a file with 500 tasks and 5 runners"
   prompts_file: resources/prompts.csv
-  num_tasks: 10
+  report_file: results/experiment
+  report_mode: pdf
+  num_tasks: 500
   num_runners: 5
   generate_prompts: false
   num_prompts: 0
   prompt_length: 0
-  max_tokens: 1000
+  max_tokens: 1000 
 
 - openai_url: https://some-api-url/v1/
-  model_name: Compressa-Qwen2-72B-Instruct
-  experiment_name: "Qwen2-72B Long Input / Short Output"
+  serv_api_url: http://localhost:5100/v1/
+  api_key: ${OPENAI_API_KEY}
+  model_name: Compressa-LLM
+  experiment_name: "File Prompts Run 2"
   description: "Experiment using prompts from a file with 20 tasks and 10 runners"
   prompts_file: resources/prompts.csv
+  report_file: results/experiment
+  report_mode: pdf
   num_tasks: 20
   num_runners: 10
   generate_prompts: true
@@ -84,6 +102,24 @@ Example of YAML file:
   prompt_length: 10000
   max_tokens: 100
 ```
+
+**List of Parameters**
+
+- `openai_url` - url to chat completion endpoint - `REQUIRED`
+- `serv_api_url` - url to service handlers of the Compressa platform
+- `api_key` - API key - `REQUIRED`
+- `model_name` - served model name - `REQUIRED`
+- `experiment_name` - `REQUIRED`
+- `description`
+- `prompts_file` - path to the file with prompts
+- `report_file` - path to the report file
+- `report_mode` - report file extension (`.csv`, `.md`, `.pdf`)
+- `num_tasks`
+- `num_runners`
+- `generate_prompts` - `true` or `false`
+- `num_prompts`
+- `prompt_length`
+- `max_tokens`
 
 ### 4. List experiments
 
@@ -131,6 +167,8 @@ options:
 
 ### 5. Generate a report for an experiment
 
+In addition to the `.pdf`, `.csv` or `.md` reports the text reports also can be generated with the command:
+
 ```bash
 ❯ compressa-perf report <EXPERIMENT_ID>
 ```
@@ -154,7 +192,11 @@ Experiment Parameters:
 ├──────────────┼───────────────────────────────────────────┤
 │    num_tasks │                                         2 │
 ├──────────────┼───────────────────────────────────────────┤
-│   openai_url │ https://some-api-url.ru/chat-2/v1/ │
+│   openai_url │ https://some-api-url.ru/chat-2/v1/        │
+├──────────────┼───────────────────────────────────────────┤
+│  max_tokens  │                                      1000 │
+├──────────────┼───────────────────────────────────────────┤
+│  model_name  │                             Compressa-LLM │
 ├──────────────┼───────────────────────────────────────────┤
 │  avg_n_input │                                        32 │
 ├──────────────┼───────────────────────────────────────────┤
@@ -166,17 +208,43 @@ Experiment Parameters:
 ╘══════════════╧═══════════════════════════════════════════╛
 
 Experiment Metrics:
-╒═══════════════════════╤══════════╕
-│ Metric                │    Value │
-╞═══════════════════════╪══════════╡
-│ MetricName.TTFT       │   0.7753 │
-├───────────────────────┼──────────┤
-│ MetricName.LATENCY    │   7.5016 │
-├───────────────────────┼──────────┤
-│ MetricName.TPOT       │   0.01   │
-├───────────────────────┼──────────┤
-│ MetricName.THROUGHPUT │ 207.84   │
-╘═══════════════════════╧══════════╛
+
+╒══════════════════════════╤══════════╕
+│ Metric                   │    Value │
+╞══════════════════════════╪══════════╡
+│ TTFT                     │   0.0622 │
+├──────────────────────────┼──────────┤
+│ TTFT_95                  │   0.0693 │
+├──────────────────────────┼──────────┤
+│ TOP_5_TTFT               │   0.0757 │
+├──────────────────────────┼──────────┤
+│ LATENCY                  │   0.4642 │
+├──────────────────────────┼──────────┤
+│ LATENCY_95               │   0.6452 │
+├──────────────────────────┼──────────┤
+│ TOP_5_LATENCY            │   0.7156 │
+├──────────────────────────┼──────────┤
+│ TPOT                     │   0.0265 │
+├──────────────────────────┼──────────┤
+│ THROUGHPUT               │ 100.162  │
+├──────────────────────────┼──────────┤
+│ THROUGHPUT_INPUT_TOKENS  │  62.4664 │
+├──────────────────────────┼──────────┤
+│ THROUGHPUT_OUTPUT_TOKENS │  37.6953 │
+├──────────────────────────┼──────────┤
+│ RPS                      │   2.154  │
+├──────────────────────────┼──────────┤
+│ LONGER_THAN_60_LATENCY   │   0      │
+├──────────────────────────┼──────────┤
+│ LONGER_THAN_120_LATENCY  │   0      │
+├──────────────────────────┼──────────┤
+│ LONGER_THAN_180_LATENCY  │   0      │
+├──────────────────────────┼──────────┤
+│ FAILED_REQUESTS          │   0      │
+├──────────────────────────┼──────────┤
+│ FAILED_REQUESTS_PER_HOUR │   0      │
+╘══════════════════════════╧══════════╛
+
 ```
 
 For more information on available commands and options, run:
