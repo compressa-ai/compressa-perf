@@ -113,6 +113,7 @@ def run_experiment(
     max_tokens: int = 1000,
     seed: int = 42,
     no_sign: bool = False,
+    old_sign: bool = False,
 ):
     if not node_url:
         raise ValueError("node_url is not set")
@@ -134,6 +135,7 @@ def run_experiment(
             private_key_hex=private_key_hex,
             num_runners=num_runners,
             no_sign=no_sign,
+            old_sign=old_sign,
         )
 
         experiment = Experiment(
@@ -360,6 +362,7 @@ def run_experiments_from_yaml(
     private_key_hex: str = None,
     model_name: str = None,
     no_sign: bool = False,
+    old_sign: bool = False,
 ):
     if not no_sign and not private_key_hex:
         raise ValueError("private_key_hex is not set (required when --no-sign is not used)")
@@ -399,6 +402,7 @@ def run_experiments_from_yaml(
             max_tokens=config.max_tokens,
             seed=config.seed,
             no_sign=no_sign,
+            old_sign=old_sign,
         )
 
     list_experiments(db=db)
@@ -421,6 +425,7 @@ def run_continuous_stress_test(
     max_tokens: int,
     report_freq_min: float,
     no_sign: bool = False,
+    old_sign: bool = False,
 ):
     """
     Creates an Experiment, loads or generates prompts, and starts
@@ -469,6 +474,7 @@ def run_continuous_stress_test(
             max_tokens=max_tokens,
             report_freq_min=report_freq_min,
             no_sign=no_sign,
+            old_sign=old_sign,
         )
         runner.start_test()
 

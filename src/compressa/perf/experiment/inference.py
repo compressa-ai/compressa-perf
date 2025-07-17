@@ -178,6 +178,7 @@ class ExperimentRunner:
         private_key_hex: str = None,
         num_runners: int = 10,
         no_sign: bool = False,
+        old_sign: bool = False,
     ) -> None:
         self.node_url = node_url
         self.model_name = model_name
@@ -185,6 +186,7 @@ class ExperimentRunner:
         self.private_key_hex = private_key_hex
         self.num_runners = num_runners
         self.no_sign = no_sign
+        self.old_sign = old_sign
         
         # Create ONE shared client manager for all runners
         # Scale clients based on number of runners
@@ -198,6 +200,7 @@ class ExperimentRunner:
             account_address=account_address,
             private_key_hex=private_key_hex,
             no_sign=no_sign,
+            old_sign=old_sign,
             num_clients=num_clients,
             max_connections_per_client=max_connections_per_client,
         )
@@ -215,6 +218,7 @@ class ExperimentRunner:
             ("max_tokens", str(max_tokens)),
             ("model_name", self.model_name),
             ("no_sign", str(self.no_sign)),
+            ("old_sign", str(self.old_sign)),
             ("client_architecture", "shared_pool"),  # Now using shared pool
         ]
 

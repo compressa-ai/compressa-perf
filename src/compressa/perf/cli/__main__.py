@@ -40,7 +40,8 @@ def run_experiment_args(args):
         num_prompts=args.num_prompts,
         prompt_length=args.prompt_length,
         max_tokens=args.max_tokens,
-        no_sign=args.no_sign
+        no_sign=args.no_sign,
+        old_sign=args.old_sign
     )
 
 
@@ -72,7 +73,8 @@ def run_experiments_from_yaml_args(args):
         account_address=args.account_address,
         private_key_hex=args.private_key_hex,
         model_name=args.model_name,
-        no_sign=args.no_sign
+        no_sign=args.no_sign,
+        old_sign=args.old_sign
     )
 
 
@@ -93,6 +95,7 @@ def run_continuous_stress_test_args(args):
         max_tokens=args.max_tokens,
         report_freq_min=args.report_freq_min,
         no_sign=args.no_sign,
+        old_sign=args.old_sign,
     )
 
 def main():
@@ -197,6 +200,10 @@ Examples:
     parser_run.add_argument(
         "--no-sign", action="store_true", help="Send requests without signing"
     )
+    parser_run.add_argument(
+        "--old-sign", action="store_true", help="Use legacy signing method for backward compatibility"
+    )
+
     parser_run.add_argument(
         "--experiment_name", type=str, required=True, help="Name of the experiment"
     )
@@ -331,6 +338,10 @@ Examples:
     parser_yaml.add_argument(
         "--no-sign", action="store_true", help="Send requests without signing"
     )
+    parser_yaml.add_argument(
+        "--old-sign", action="store_true", help="Use legacy signing method for backward compatibility"
+    )
+
     parser_yaml.set_defaults(func=run_experiments_from_yaml_args)
 
     parser_stress = subparsers.add_parser(
@@ -358,6 +369,10 @@ Examples:
     parser_stress.add_argument(
         "--no-sign", action="store_true", help="Send requests without signing"
     )
+    parser_stress.add_argument(
+        "--old-sign", action="store_true", help="Use legacy signing method for backward compatibility"
+    )
+
     parser_stress.add_argument(
         "--experiment_name", type=str, required=True, help="Name of the experiment"
     )

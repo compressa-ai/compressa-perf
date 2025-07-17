@@ -45,6 +45,7 @@ class ContinuousStressTestRunner:
         report_freq_min: float = 1.0,
         seed: int = 42,
         no_sign: bool = False,
+        old_sign: bool = False,
     ):
         self.db_path = db_path
         self.node_url = node_url
@@ -58,6 +59,7 @@ class ContinuousStressTestRunner:
         self.report_freq_sec = report_freq_min * 60
         self.running = True
         self.no_sign = no_sign
+        self.old_sign = old_sign
 
         self.experiment_start_ts = time.time()
         self.window_count = 1
@@ -75,6 +77,7 @@ class ContinuousStressTestRunner:
             account_address=account_address,
             private_key_hex=private_key_hex,
             no_sign=no_sign,
+            old_sign=old_sign,
             num_clients=num_clients,
             max_connections_per_client=max_connections_per_client,
         )
@@ -253,6 +256,7 @@ class ContinuousStressTestRunner:
             ("model_name", self.model_name),
             ("node_url", self.node_url),
             ("no_sign", str(self.no_sign)),
+            ("old_sign", str(self.old_sign)),
             ("client_architecture", "shared_pool"),  # Now using shared pool
         ]
 

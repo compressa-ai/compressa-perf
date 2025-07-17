@@ -7,6 +7,8 @@ from typing import List
 import contextlib
 import os
 import resource
+import uuid
+from urllib.parse import urlparse
 
 import requests
 import urllib3
@@ -31,6 +33,30 @@ def check_system_limits():
     except Exception as e:
         logger.error(f"Could not check system limits: {e}")
         return None, None
+    
+
+def get_entrypoint_addr(url):
+    try:
+        parsed = urlparse(url.rstrip('/'))
+        host_port = f"{parsed.hostname}:{parsed.port or (443 if parsed.scheme == 'https' else 80)}"
+        
+        data = requests.get(f"{url}/v1/epochs/current/participants", timeout=10).json()
+        participants = data.get('active_participants', {})
+        
+        for p in participants.get('participants', []):
+            participant_url = p.get('inference_url', '')
+            if participant_url:
+                parsed_participant = urlparse(participant_url.rstrip('/'))
+                participant_host_port = f"{parsed_participant.hostname}:{parsed_participant.port or (443 if parsed_participant.scheme == 'https' else 80)}"
+                
+                if participant_host_port == host_port:
+                    return p['index']
+       
+        return None
+    except:
+        return None
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -48,11 +74,14 @@ class _NodeClient:
         max_retries: int = 3,
         backoff_factor: float = 0.5,
         no_sign: bool = False,
+        old_sign: bool = False,
     ) -> None:
         self.node_url = node_url.rstrip("/")
         self.account_address = account_address
         self.timeout = timeout
         self.no_sign = no_sign
+        self.old_sign = old_sign
+        self.entrypoint_addr = get_entrypoint_addr(node_url) if not no_sign else ""
 
         # Check system limits on first initialization
         if not hasattr(_NodeClient, '_limits_checked'):
@@ -118,10 +147,24 @@ class _NodeClient:
     # ---------------------------------------------------------------------
     # Internal helpers
     # ---------------------------------------------------------------------
-    def _sign(self, payload: bytes) -> str:
+    def _sign(self, payload: bytes, timestamp: int, transfer_address: str) -> str:
         """Return a *low‑s* canonical ECDSA signature encoded in base‑64."""
+        signature_bytes = payload
+        if timestamp > 0:
+            signature_bytes += str(timestamp).encode('utf-8')
+        signature_bytes += transfer_address.encode('utf-8')
+        
+        # Debug logging
+        logger.debug(f"Signature components:")
+        logger.debug(f"  Payload length: {len(payload)}")
+        logger.debug(f"  Payload (first 100 chars): {payload[:100]}")
+        logger.debug(f"  Timestamp: {timestamp}")
+        logger.debug(f"  Transfer address: {transfer_address}")
+        logger.debug(f"  Combined signature bytes length: {len(signature_bytes)}")
+        logger.debug(f"  Combined signature bytes (first 200 chars): {signature_bytes[:200]}")
+        
         raw_sig = self._signing_key.sign_deterministic(
-            payload, hashfunc=hashlib.sha256, sigencode=util.sigencode_string
+            signature_bytes, hashfunc=hashlib.sha256, sigencode=util.sigencode_string
         )
         r, s = raw_sig[:32], raw_sig[32:]
 
@@ -132,7 +175,43 @@ class _NodeClient:
             s_int = curve_n - s_int
             s = s_int.to_bytes(32, "big")
 
-        return base64.b64encode(r + s).decode()
+        signature = base64.b64encode(r + s).decode()
+        logger.debug(f"Generated signature: {signature}")
+        
+        # Log public key information for debugging
+        pub_key_bytes = self._signing_key.get_verifying_key().to_string()
+        pub_key_b64 = base64.b64encode(pub_key_bytes).decode()
+        logger.debug(f"Public key (base64): {pub_key_b64}")
+        logger.debug(f"Account address: {self.account_address}")
+        
+        return signature
+
+    def _old_sign(self, payload: bytes, timestamp: int, transfer_address: str) -> str:
+        """Legacy signing method without low-s enforcement for backward compatibility."""
+        # Construct signature bytes: Payload + Timestamp + TransferAddress
+        signature_bytes = payload
+        if timestamp > 0:
+            signature_bytes += str(timestamp).encode('utf-8')
+        signature_bytes += transfer_address.encode('utf-8')
+        
+        # Debug logging
+        logger.debug(f"Old signature components:")
+        logger.debug(f"  Payload length: {len(payload)}")
+        logger.debug(f"  Payload (first 100 chars): {payload[:100]}")
+        logger.debug(f"  Timestamp: {timestamp}")
+        logger.debug(f"  Transfer address: {transfer_address}")
+        logger.debug(f"  Combined signature bytes length: {len(signature_bytes)}")
+        logger.debug(f"  Combined signature bytes (first 200 chars): {signature_bytes[:200]}")
+        
+        raw_sig = self._signing_key.sign_deterministic(
+            signature_bytes, hashfunc=hashlib.sha256, sigencode=util.sigencode_string
+        )
+        
+        # No low-s enforcement in legacy mode
+        signature = base64.b64encode(raw_sig).decode()
+        logger.debug(f"Generated old signature: {signature}")
+        
+        return signature
 
     # ---------------------------------------------------------------------
     # Public API
@@ -154,7 +233,8 @@ class _NodeClient:
             "max_tokens": max_tokens,
             "stream_options": {
                 "include_usage": True
-            }
+            },
+            "_nonce": str(int.from_bytes(os.urandom(4), "big"))
         }
         payload_bytes = json.dumps(payload, separators=(",", ":")).encode()
 
@@ -163,8 +243,16 @@ class _NodeClient:
         }
 
         if not self.no_sign:
-            headers["Authorization"] = self._sign(payload_bytes)
+            timestamp_ns = int(time.time_ns())
+            
+            transfer_address = self.entrypoint_addr
+            
+            if self.old_sign:
+                headers["Authorization"] = self._old_sign(payload_bytes, timestamp_ns, transfer_address)
+            else:
+                headers["Authorization"] = self._sign(payload_bytes, timestamp_ns, transfer_address)
             headers["X-Requester-Address"] = self.account_address
+            headers["X-Timestamp"] = str(timestamp_ns)
 
         resp = self._session.post(
             f"{self.node_url}/v1/chat/completions",
@@ -173,7 +261,26 @@ class _NodeClient:
             stream=True,
             timeout=self.timeout,
         )
-        resp.raise_for_status()
+        
+        # Handle HTTP errors with detailed error messages
+        if resp.status_code >= 400:
+            try:
+                # The server returns JSON errors in the format: {"error": "message"}
+                error_data = resp.json()
+                error_message = error_data.get("error", "Unknown error")
+                logger.error(f"HTTP {resp.status_code} error: {error_message}")
+                raise requests.exceptions.HTTPError(f"HTTP {resp.status_code}: {error_message}", response=resp)
+            except ValueError:
+                # If JSON parsing fails, try to read as text
+                try:
+                    error_text = resp.text
+                    logger.error(f"HTTP {resp.status_code} error: {error_text}")
+                    raise requests.exceptions.HTTPError(f"HTTP {resp.status_code}: {error_text}", response=resp)
+                except Exception:
+                    # If everything fails, use the status reason
+                    logger.error(f"HTTP {resp.status_code} error: {resp.reason}")
+                    resp.raise_for_status()
+        
         return resp  # caller iterates resp.iter_lines(...)
 
 
@@ -195,6 +302,7 @@ class OptimizedNodeClientManager:
         num_clients: int = 5,  # Reduced from 10
         max_connections_per_client: int = 50,  # Reduced from 500
         no_sign: bool = False,
+        old_sign: bool = False,
     ):
         self.clients = []
         self.current_client_index = 0
@@ -212,6 +320,7 @@ class OptimizedNodeClientManager:
                 max_retries=3,
                 backoff_factor=0.5,
                 no_sign=no_sign,
+                old_sign=old_sign,
             )
             self.clients.append(client)
     
