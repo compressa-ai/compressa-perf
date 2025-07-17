@@ -385,7 +385,6 @@ Examples:
     parser_stress.add_argument(
         "--report_freq_min", type=float, default=1, help="Frequency (minutes) to compute windowed metrics"
     )
-
     parser_stress.set_defaults(func=run_continuous_stress_test_args)
 
     def default_function(args):

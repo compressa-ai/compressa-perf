@@ -425,6 +425,7 @@ def run_continuous_stress_test(
     """
     Creates an Experiment, loads or generates prompts, and starts
     an infinite stress test that computes windowed metrics in real time.
+    Uses optimized HTTP client for high-performance concurrent requests.
     """
     if not node_url:
         raise ValueError("node_url is not set")

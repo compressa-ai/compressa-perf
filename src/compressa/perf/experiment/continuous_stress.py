@@ -9,6 +9,7 @@ from typing import List
 from datetime import datetime
 
 from compressa.perf.experiment.inference import InferenceRunner
+from compressa.perf.experiment.chain_client import OptimizedNodeClientManager
 from compressa.perf.experiment.analysis import Analyzer
 from compressa.perf.data.models import (
     Measurement,
@@ -25,9 +26,9 @@ logger = get_logger(__name__)
 
 class ContinuousStressTestRunner:
     """
-    Runs inference requests continuously. Every 'report_freq_min' minutes,
-    it computes metrics on the last window of measurements and stores them
-    in DB with a suffix like "ttft_window_1", etc. Also prints them in real-time.
+    Runs inference requests continuously using shared HTTP client pool.
+    Every 'report_freq_min' minutes, it computes metrics on the last window 
+    of measurements and stores them in DB with a suffix like "ttft_window_1", etc.
     """
 
     def __init__(
@@ -62,20 +63,34 @@ class ContinuousStressTestRunner:
         self.window_count = 1
 
         self.choice_generator = random.Random(seed)
+        
+        # Create ONE shared client manager for all runners
+        num_clients = min(10, max(3, num_runners // 20))  # 3-10 clients based on runner count
+        max_connections_per_client = 50
+        
+        logger.info(f"Creating shared client manager with {num_clients} clients, {max_connections_per_client} connections each for {num_runners} runners")
+        
+        self._shared_client_manager = OptimizedNodeClientManager(
+            node_url=node_url,
+            account_address=account_address,
+            private_key_hex=private_key_hex,
+            no_sign=no_sign,
+            num_clients=num_clients,
+            max_connections_per_client=max_connections_per_client,
+        )
 
     def start_test(self):
         """
         Launches two threads:
-          1) A worker thread (or pool) sending requests continuously
+          1) A worker thread pool sending requests continuously
           2) A metrics thread computing windowed metrics every report_freq_sec
         """
         self.executor = ThreadPoolExecutor(max_workers=self.num_runners)
+        
+        # Create inference runner with shared client manager
         self.inference_runner = InferenceRunner(
-            node_url=self.node_url,
+            shared_client_manager=self._shared_client_manager,
             model_name=self.model_name,
-            account_address=self.account_address,
-            private_key_hex=self.private_key_hex,
-            no_sign=self.no_sign,
         )
 
         self._store_continuous_params()
@@ -92,7 +107,7 @@ class ContinuousStressTestRunner:
         )
         t_metrics.start()
 
-        logger.info("Continuous stress test started. Press Ctrl+C to stop.")
+        logger.info("Continuous stress test started (shared client pool enabled). Press Ctrl+C to stop.")
 
         # Keep main thread alive until user stops
         try:
@@ -102,6 +117,9 @@ class ContinuousStressTestRunner:
             logger.info("Stopping continuous stress test.")
             self.running = False
             self.executor.shutdown(wait=False)
+            # Clean up resources
+            if hasattr(self, '_shared_client_manager'):
+                self._shared_client_manager.close_all()
 
     def _continuous_inference_loop(self):
         """
@@ -110,27 +128,28 @@ class ContinuousStressTestRunner:
         while self.running:
             prompt = self.choice_generator.choice(self.prompts)
             self.executor.submit(self._do_inference_task, prompt)
-            # Short pause to avoid spamming the server too rapidly
-            time.sleep(0.01)
+            # Optimized for high throughput
+            time.sleep(0.001)
 
     def _do_inference_task(self, prompt: str):
         """
         Single inference call. Stores the resulting measurement to DB.
         """
-        meas: Measurement = self.inference_runner.run_inference(
-            experiment_id=self.experiment_id,
-            prompt=prompt,
-            max_tokens=self.max_tokens,
-        )
-        insert_measurement(meas)
+        try:
+            meas: Measurement = self.inference_runner.run_inference(
+                experiment_id=self.experiment_id,
+                prompt=prompt,
+                max_tokens=self.max_tokens,
+            )
+            insert_measurement(meas)
+        except Exception as e:
+            logger.error(f"Inference task failed: {e}")
 
     def _metrics_loop(self):
         """
         Every 'report_freq_sec', compute metrics for the time window
         [start, end], store them in the DB (with a suffix), and log them.
         """
-
-
         while self.running:
             time.sleep(self.report_freq_sec)
 
@@ -224,7 +243,7 @@ class ContinuousStressTestRunner:
 
     def _store_continuous_params(self):
         """
-        Store some parameters about the continuous run using the Parameter dataclass.
+        Store parameters about the continuous run.
         """
         param_list = [
             ("run_mode", "continuous"),
@@ -234,6 +253,7 @@ class ContinuousStressTestRunner:
             ("model_name", self.model_name),
             ("node_url", self.node_url),
             ("no_sign", str(self.no_sign)),
+            ("client_architecture", "shared_pool"),  # Now using shared pool
         ]
 
         if self.account_address:

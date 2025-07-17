@@ -4,8 +4,12 @@ import json
 import hashlib
 import base64
 from typing import List
+import contextlib
+import os
+import resource
 
 import requests
+import urllib3
 from ecdsa import SigningKey, SECP256k1, util
 
 from compressa.utils import get_logger
@@ -13,8 +17,24 @@ from compressa.utils import get_logger
 logger = get_logger(__name__)
 
 
+def check_system_limits():
+    """Check and log system limits for file descriptors"""
+    try:
+        soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+        logger.info(f"File descriptor limits: soft={soft_limit}, hard={hard_limit}")
+        
+        # Warn if limits are too low
+        if soft_limit < 10000:
+            logger.warning(f"Low file descriptor limit ({soft_limit}). Consider increasing with 'ulimit -n 65536'")
+        
+        return soft_limit, hard_limit
+    except Exception as e:
+        logger.error(f"Could not check system limits: {e}")
+        return None, None
+
+
 # ---------------------------------------------------------------------------
-# Low‑level HTTP client that speaks to the inference node
+# High-performance HTTP client optimized for concurrent requests
 # ---------------------------------------------------------------------------
 class _NodeClient:
     def __init__(
@@ -23,13 +43,21 @@ class _NodeClient:
         account_address: str = None,
         private_key_hex: str = None,
         timeout: float = 600.0,
-        max_connections: int = 200,
+        max_connections: int = 100,  # Reduced from 1000
+        max_connections_per_host: int = 100,  # Reduced from 1000  
+        max_retries: int = 3,
+        backoff_factor: float = 0.5,
         no_sign: bool = False,
     ) -> None:
         self.node_url = node_url.rstrip("/")
         self.account_address = account_address
         self.timeout = timeout
         self.no_sign = no_sign
+
+        # Check system limits on first initialization
+        if not hasattr(_NodeClient, '_limits_checked'):
+            check_system_limits()
+            _NodeClient._limits_checked = True
 
         # Deterministic signing key (only if signing is enabled)
         if not self.no_sign:
@@ -41,13 +69,51 @@ class _NodeClient:
                 bytes.fromhex(private_key_hex), curve=SECP256k1
             )
 
-        # Connection‑pooled requests session
+        # Configure urllib3 for high performance
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        # Create optimized session for high concurrency
         self._session = requests.Session()
-        adapter = requests.adapters.HTTPAdapter(
-            pool_connections=max_connections, pool_maxsize=max_connections
+        
+        # Configure retry strategy
+        retry_strategy = urllib3.util.Retry(
+            total=max_retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["POST"],
+            raise_on_status=False  # Don't raise on retry-able status codes
         )
+        
+        # Configure HTTP adapter with conservative settings for stability
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=max_connections,
+            pool_maxsize=max_connections_per_host,
+            max_retries=retry_strategy,
+            pool_block=True  # Block when pool is full instead of creating new connections
+        )
+        
         self._session.mount("http://", adapter)
         self._session.mount("https://", adapter)
+        
+        # Configure session defaults for better performance and connection reuse
+        self._session.headers.update({
+            'Connection': 'keep-alive',
+            'Keep-Alive': 'timeout=30, max=1000'
+        })
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        """Properly close the session and clean up resources"""
+        if hasattr(self, '_session'):
+            try:
+                self._session.close()
+            except Exception as e:
+                logger.debug(f"Error closing session: {e}")
 
     # ---------------------------------------------------------------------
     # Internal helpers
@@ -109,3 +175,79 @@ class _NodeClient:
         )
         resp.raise_for_status()
         return resp  # caller iterates resp.iter_lines(...)
+
+
+# ---------------------------------------------------------------------------
+# Optimized client manager for high-concurrency scenarios
+# ---------------------------------------------------------------------------
+class OptimizedNodeClientManager:
+    """
+    Manages a pool of _NodeClient instances to handle high-concurrency requests.
+    This helps distribute load across multiple connection pools.
+    """
+    
+    def __init__(
+        self,
+        node_url: str,
+        account_address: str = None,
+        private_key_hex: str = None,
+        timeout: float = 600.0,
+        num_clients: int = 5,  # Reduced from 10
+        max_connections_per_client: int = 50,  # Reduced from 500
+        no_sign: bool = False,
+    ):
+        self.clients = []
+        self.current_client_index = 0
+        
+        logger.info(f"Creating {num_clients} optimized HTTP clients with {max_connections_per_client} connections each")
+        
+        for _ in range(num_clients):
+            client = _NodeClient(
+                node_url=node_url,
+                account_address=account_address,
+                private_key_hex=private_key_hex,
+                timeout=timeout,
+                max_connections=max_connections_per_client,
+                max_connections_per_host=max_connections_per_client,
+                max_retries=3,
+                backoff_factor=0.5,
+                no_sign=no_sign,
+            )
+            self.clients.append(client)
+    
+    def get_client(self) -> _NodeClient:
+        """Get the next client using round-robin selection"""
+        client = self.clients[self.current_client_index]
+        self.current_client_index = (self.current_client_index + 1) % len(self.clients)
+        return client
+    
+    def close_all(self):
+        """Close all clients"""
+        for client in self.clients:
+            client.close()
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_all()
+
+
+# ---------------------------------------------------------------------------
+# Streaming response wrapper for proper resource cleanup
+# ---------------------------------------------------------------------------
+@contextlib.contextmanager
+def managed_stream_response(response):
+    """Context manager for properly handling streaming responses"""
+    try:
+        yield response
+    finally:
+        # Ensure response is properly closed
+        try:
+            if hasattr(response, 'close'):
+                response.close()
+            # Also close the underlying connection if needed
+            if hasattr(response, 'raw') and hasattr(response.raw, 'close'):
+                response.raw.close()
+        except Exception as e:
+            logger.debug(f"Error during response cleanup: {e}")  # Don't fail on cleanup errors
