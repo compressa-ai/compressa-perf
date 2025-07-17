@@ -187,28 +187,28 @@ class _NodeClient:
         return signature
 
     def _old_sign(self, payload: bytes, timestamp: int, transfer_address: str) -> str:
-        """Legacy signing method without low-s enforcement for backward compatibility."""
-        # Construct signature bytes: Payload + Timestamp + TransferAddress
-        signature_bytes = payload
-        if timestamp > 0:
-            signature_bytes += str(timestamp).encode('utf-8')
-        signature_bytes += transfer_address.encode('utf-8')
+        """Legacy signing method matching the original behavior for backward compatibility."""
+        # Original behavior: only sign the payload bytes, no timestamp or transfer address
         
         # Debug logging
         logger.debug(f"Old signature components:")
         logger.debug(f"  Payload length: {len(payload)}")
         logger.debug(f"  Payload (first 100 chars): {payload[:100]}")
-        logger.debug(f"  Timestamp: {timestamp}")
-        logger.debug(f"  Transfer address: {transfer_address}")
-        logger.debug(f"  Combined signature bytes length: {len(signature_bytes)}")
-        logger.debug(f"  Combined signature bytes (first 200 chars): {signature_bytes[:200]}")
+        logger.debug(f"  Note: timestamp and transfer_address are ignored in old signing mode")
         
         raw_sig = self._signing_key.sign_deterministic(
-            signature_bytes, hashfunc=hashlib.sha256, sigencode=util.sigencode_string
+            payload, hashfunc=hashlib.sha256, sigencode=util.sigencode_string
         )
-        
-        # No low-s enforcement in legacy mode
-        signature = base64.b64encode(raw_sig).decode()
+        r, s = raw_sig[:32], raw_sig[32:]
+
+        # Apply low-s enforcement (original behavior had this)
+        curve_n = SECP256k1.order
+        s_int = int.from_bytes(s, "big")
+        if s_int > curve_n // 2:
+            s_int = curve_n - s_int
+            s = s_int.to_bytes(32, "big")
+
+        signature = base64.b64encode(r + s).decode()
         logger.debug(f"Generated old signature: {signature}")
         
         return signature
