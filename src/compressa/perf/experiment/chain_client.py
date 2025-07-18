@@ -178,7 +178,7 @@ class _NodeClient:
         
         return signature
 
-    def _old_sign(self, payload: bytes, timestamp: int, transfer_address: str) -> str:
+    def _old_sign(self, payload: bytes) -> str:
         """Legacy signing method matching the original behavior for backward compatibility."""
         # Original behavior: only sign the payload bytes, no timestamp or transfer address
         
@@ -240,7 +240,7 @@ class _NodeClient:
             transfer_address = self.entrypoint_addr
             
             if self.old_sign:
-                headers["Authorization"] = self._old_sign(payload_bytes, timestamp_ns, transfer_address)
+                headers["Authorization"] = self._old_sign(payload_bytes)
             else:
                 headers["Authorization"] = self._sign(payload_bytes, timestamp_ns, transfer_address)
             headers["X-Requester-Address"] = self.account_address
