@@ -104,20 +104,12 @@ class _NodeClient:
         # Create optimized session for high concurrency
         self._session = requests.Session()
         
-        # Configure retry strategy
-        retry_strategy = urllib3.util.Retry(
-            total=max_retries,
-            backoff_factor=backoff_factor,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["POST"],
-            raise_on_status=False  # Don't raise on retry-able status codes
-        )
-        
         # Configure HTTP adapter with conservative settings for stability
+        # Retries disabled for maximum performance
         adapter = requests.adapters.HTTPAdapter(
             pool_connections=max_connections,
             pool_maxsize=max_connections_per_host,
-            max_retries=retry_strategy,
+            max_retries=0,  # Disable retries
             pool_block=True  # Block when pool is full instead of creating new connections
         )
         

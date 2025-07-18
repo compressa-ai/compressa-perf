@@ -8,6 +8,7 @@ from compressa.perf.cli.tools import (
     list_experiments,
     run_experiments_from_yaml,
     run_continuous_stress_test,
+    check_balances,
     DEFAULT_DB_PATH,
 )
 from compressa.perf.db.setup import (
@@ -97,6 +98,13 @@ def run_continuous_stress_test_args(args):
         no_sign=args.no_sign,
         old_sign=args.old_sign,
     )
+
+
+def check_balances_args(args):
+    check_balances(
+        node_url=args.node_url,
+    )
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -401,6 +409,18 @@ Examples:
         "--report_freq_min", type=float, default=1, help="Frequency (minutes) to compute windowed metrics"
     )
     parser_stress.set_defaults(func=run_continuous_stress_test_args)
+
+    parser_balances = subparsers.add_parser(
+        "check-balances",
+        help="Check the balance of the account on the specified node.",
+    )
+    parser_balances.add_argument(
+        "--node_url",
+        type=str,
+        required=True,
+        help="Node URL to check balance on.",
+    )
+    parser_balances.set_defaults(func=check_balances_args)
 
     def default_function(args):
         parser.print_help()

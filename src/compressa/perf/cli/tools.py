@@ -32,6 +32,7 @@ from compressa.perf.experiment.config import (
 from compressa.perf.experiment.continuous_stress import ContinuousStressTestRunner
 
 from compressa.utils import get_logger
+import requests
 
 DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
 
@@ -480,3 +481,43 @@ def run_continuous_stress_test(
 
         db_writer.wait_for_write()
         stop_db_writer()
+
+
+def check_balances(node_url: str):
+    """Check balances of all participants in the network and print as a table with URLs, weight, models, balance, and address. Sorted by weight descending."""
+    try:
+        response = requests.get(f"{node_url}/v1/epochs/current/participants", timeout=10)
+        data = response.json()
+        participants = data.get('active_participants', {}).get('participants', [])
+        
+        if not participants:
+            print("No active participants found.")
+            return
+
+        table = []
+        for participant in participants:
+            address = participant.get('index')
+            inference_url = participant.get('inference_url', '-')
+            models = participant.get('models', [])
+            models_str = ', '.join(models) if models else '-'
+            weight = participant.get('weight', 0)
+            if address:
+                participant_url = f"{node_url}/v1/participants/{address}"
+                balance_response = requests.get(participant_url, timeout=10)
+                balance_data = balance_response.json()
+                balance = balance_data.get('balance', 0)
+                table.append([inference_url, weight, models_str, balance, address])
+
+        # Sort by weight descending
+        table.sort(key=lambda x: x[1], reverse=True)
+
+        print(f"\nNode URL: {node_url}\n")
+        print(tabulate(
+            table,
+            headers=["Inference URL", "Weight", "Models", "Balance", "Address"],
+            tablefmt="github"
+        ))
+    except requests.exceptions.RequestException as e:
+        print(f"Error connecting to node: {e}")
+    except Exception as e:
+        print(f"Error checking balances: {e}")
