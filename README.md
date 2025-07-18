@@ -3,6 +3,40 @@
 This tool is designed to measure the performance of Compressa models.
 It uses the OpenAI API to run inference tasks and stores the results in a SQLite database.
 
+## Quickstart
+
+For a quick test run, you can use these commands:
+
+### Option 1: Direct measurement with testnet account creation
+
+```bash
+❯ export SEED_URL=http://36.189.234.237:19252/
+❯ export MODEL_NAME=Qwen/Qwen2.5-7B-Instruct
+
+❯ compressa-perf measure \
+    --node_url "$SEED_URL" \
+    --model_name "$MODEL_NAME" \
+    --create-account-testnet \
+    --inferenced-path ./inferenced \
+    --experiment_name test \
+    --generate_prompts \
+    --num_prompts 200 \
+    --prompt_length 10000 \
+    --num_tasks 60 \
+    --num_runners 20 \
+    --max_tokens 300
+```
+
+### Option 2: Run from YAML configuration (no signing, MLNode test outside of chain)
+
+```bash
+❯ compressa-perf measure-from-yaml \
+    --no-sign \
+    --node_url http://36.189.234.237:19255 \
+    --model_name Qwen/Qwen2.5-7B-Instruct \
+    config.yml
+```
+
 ## Installation
 
 Install from the repository (recommended for latest features and development):
