@@ -1,6 +1,6 @@
 import sqlite3
 from tabulate import tabulate
-from typing import List
+from typing import List, Tuple
 
 import pandas as pd
 
@@ -33,8 +33,100 @@ from compressa.perf.experiment.continuous_stress import ContinuousStressTestRunn
 
 from compressa.utils import get_logger
 import requests
+import subprocess
+import shlex
+import time
+import re
+import sys
+import os
 
 DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
+
+
+def _create_testnet_account(
+    account_name: str,
+    seed_url: str,
+    inferenced_path: str = "./inferenced"
+) -> Tuple[str, str]:
+    """
+    Create a testnet account and export its private key.
+    
+    Args:
+        account_name: Name for the account
+        seed_url: Seed node URL for testnet
+        inferenced_path: Path to the inferenced binary
+        
+    Returns:
+        Tuple of (account_address, private_key_hex)
+        
+    Raises:
+        ValueError: If account creation fails or required parameters are missing
+    """
+    if not account_name:
+        raise ValueError("account_name is required for testnet account creation")
+    if not seed_url:
+        raise ValueError("seed_url is required for testnet account creation")
+    
+    # Validate seed_url format
+    if not seed_url.startswith(('http://', 'https://')):
+        raise ValueError(f"seed_url must start with http:// or https://, got: {seed_url}")
+    
+    # Determine inferenced binary path
+    if os.path.exists(inferenced_path):
+        inferenced_bin = inferenced_path
+    else:
+        # Try to find inferenced in PATH
+        try:
+            subprocess.run(["which", "inferenced"], check=True, capture_output=True)
+            inferenced_bin = "inferenced"
+        except subprocess.CalledProcessError:
+            raise ValueError(f"inferenced binary not found at '{inferenced_path}' or in PATH")
+    
+    print(f"[Testnet] Using inferenced binary: {inferenced_bin}")
+    print(f"[Testnet] Using seed URL: {seed_url}")
+    print(f"[Testnet] Creating account '{account_name}'...")
+    
+    # Step 1: Create client - use array format to avoid shell quoting issues
+    try:
+        client_cmd = ["sh", "-c", f'echo "y" | {shlex.quote(inferenced_bin)} create-client {shlex.quote(account_name)} --node-address {shlex.quote(seed_url)}']
+        print(f"[Testnet] Running command: {' '.join(client_cmd)}")
+        client_output = subprocess.check_output(client_cmd, text=True, stderr=subprocess.STDOUT)
+        print(client_output)
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Failed to create client. Command failed with exit code {e.returncode}.\n"
+        error_msg += f"Output: {e.output if hasattr(e, 'output') else str(e)}\n"
+        error_msg += f"Seed URL used: {seed_url}\n"
+        error_msg += f"Account name: {account_name}"
+        raise ValueError(error_msg)
+    
+    # Extract account address from output
+    match = re.search(r'(gonka[a-z0-9]{39})', client_output)
+    account_address = match.group(1) if match else None
+    if not account_address:
+        raise ValueError(f"Could not extract account address from client creation output:\n{client_output}")
+    
+    print(f"[Testnet] Account created: {account_address}")
+    
+    # Step 2: Export private key
+    print("[Testnet] Exporting private key...")
+    try:
+        key_cmd = ["sh", "-c", f'echo "y" | {shlex.quote(inferenced_bin)} keys export {shlex.quote(account_name)} --unarmored-hex --unsafe']
+        print(f"[Testnet] Running command: {' '.join(key_cmd)}")
+        private_key_hex = subprocess.check_output(key_cmd, text=True, stderr=subprocess.STDOUT).strip()
+        if not private_key_hex:
+            raise ValueError("Private key export returned empty result")
+        print("[Testnet] Private key exported successfully")
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Failed to export private key. Command failed with exit code {e.returncode}.\n"
+        error_msg += f"Output: {e.output if hasattr(e, 'output') else str(e)}\n"
+        error_msg += f"Account name: {account_name}"
+        raise ValueError(error_msg)
+    
+    # Brief pause to ensure account is ready
+    print("[Testnet] Waiting for account to be ready...")
+    time.sleep(5)
+    
+    return account_address, private_key_hex
 
 logger = get_logger(__name__)
 
@@ -115,7 +207,18 @@ def run_experiment(
     seed: int = 42,
     no_sign: bool = False,
     old_sign: bool = False,
+    create_account_testnet: bool = False,
+    account_name: str = None,
+    inferenced_path: str = "./inferenced",
+    **kwargs
 ):
+    if create_account_testnet:
+        account_name = account_name or "testnetuser"
+        account_address, private_key_hex = _create_testnet_account(
+            account_name=account_name,
+            seed_url=node_url,
+            inferenced_path=inferenced_path
+        )
     if not node_url:
         raise ValueError("node_url is not set")
     if not no_sign:
@@ -364,34 +467,55 @@ def run_experiments_from_yaml(
     model_name: str = None,
     no_sign: bool = False,
     old_sign: bool = False,
+    create_account_testnet: bool = False,
+    account_name: str = None,
+    inferenced_path: str = "./inferenced",
+    **kwargs
 ):
-    if not no_sign and not private_key_hex:
+    effective_account_address = account_address
+    effective_private_key_hex = private_key_hex
+    effective_node_url = node_url
+    if create_account_testnet:
+        account_name = account_name or "testnetuser"
+        effective_account_address, effective_private_key_hex = _create_testnet_account(
+            account_name=account_name,
+            seed_url=effective_node_url,
+            inferenced_path=inferenced_path
+        )
+    
+    # Check for private_key_hex after account creation logic
+    if not no_sign and not effective_private_key_hex:
         raise ValueError("private_key_hex is not set (required when --no-sign is not used)")
 
     configs = load_yaml_configs(yaml_file)
 
     for config in configs:
         # Use command-line node_url if provided, otherwise use from config
-        effective_node_url = node_url if node_url else config.node_url
-        if not effective_node_url:
+        config_node_url = effective_node_url if effective_node_url else config.node_url
+        if not config_node_url:
             raise ValueError("node_url is not set (neither in command line nor in config file)")
 
         # Use command-line account_address if provided, otherwise use from config
-        effective_account_address = account_address if account_address else config.account_address
-        if not effective_account_address:
+        config_account_address = effective_account_address if effective_account_address else config.account_address
+        if not config_account_address:
             raise ValueError("account_address is not set (neither in command line nor in config file)")
 
+        # Use command-line private_key_hex if provided, otherwise use from config
+        config_private_key_hex = effective_private_key_hex if effective_private_key_hex else getattr(config, 'private_key_hex', None)
+        if not no_sign and not config_private_key_hex:
+            raise ValueError("private_key_hex is not set (required when --no-sign is not used)")
+
         # Use command-line model_name if provided, otherwise use from config
-        effective_model_name = model_name if model_name else config.model_name
-        if not effective_model_name:
+        config_model_name = model_name if model_name else config.model_name
+        if not config_model_name:
             raise ValueError("model_name is not set (neither in command line nor in config file)")
 
         run_experiment(
             db=db,
-            node_url=effective_node_url,
-            model_name=effective_model_name,
-            account_address=effective_account_address,
-            private_key_hex=private_key_hex,
+            node_url=config_node_url,
+            model_name=config_model_name,
+            account_address=config_account_address,
+            private_key_hex=config_private_key_hex,
             experiment_name=config.experiment_name,
             description=config.description,
             prompts_file=config.prompts_file,
@@ -427,7 +551,18 @@ def run_continuous_stress_test(
     report_freq_min: float,
     no_sign: bool = False,
     old_sign: bool = False,
+    create_account_testnet: bool = False,
+    account_name: str = None,
+    inferenced_path: str = "./inferenced",
+    **kwargs
 ):
+    if create_account_testnet:
+        account_name = account_name or "testnetuser"
+        account_address, private_key_hex = _create_testnet_account(
+            account_name=account_name,
+            seed_url=node_url,
+            inferenced_path=inferenced_path
+        )
     """
     Creates an Experiment, loads or generates prompts, and starts
     an infinite stress test that computes windowed metrics in real time.
@@ -521,3 +656,6 @@ def check_balances(node_url: str):
         print(f"Error connecting to node: {e}")
     except Exception as e:
         print(f"Error checking balances: {e}")
+
+
+

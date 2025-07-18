@@ -26,6 +26,10 @@ def handle_stop_signals(signum, frame):
 
 
 def run_experiment_args(args):
+    # node_url is always required - either for direct connection or testnet account creation
+    if not args.node_url:
+        raise ValueError("--node_url is required")
+    
     run_experiment(
         db=args.db,
         node_url=args.node_url,
@@ -42,7 +46,10 @@ def run_experiment_args(args):
         prompt_length=args.prompt_length,
         max_tokens=args.max_tokens,
         no_sign=args.no_sign,
-        old_sign=args.old_sign
+        old_sign=args.old_sign,
+        create_account_testnet=args.create_account_testnet,
+        account_name=args.account_name,
+        inferenced_path=args.inferenced_path
     )
 
 
@@ -75,11 +82,18 @@ def run_experiments_from_yaml_args(args):
         private_key_hex=args.private_key_hex,
         model_name=args.model_name,
         no_sign=args.no_sign,
-        old_sign=args.old_sign
+        old_sign=args.old_sign,
+        create_account_testnet=args.create_account_testnet,
+        account_name=args.account_name,
+        inferenced_path=args.inferenced_path
     )
 
 
 def run_continuous_stress_test_args(args):
+    # node_url is always required - either for direct connection or testnet account creation
+    if not args.node_url:
+        raise ValueError("--node_url is required")
+    
     run_continuous_stress_test(
         db=args.db,
         node_url=args.node_url,
@@ -97,6 +111,9 @@ def run_continuous_stress_test_args(args):
         report_freq_min=args.report_freq_min,
         no_sign=args.no_sign,
         old_sign=args.old_sign,
+        create_account_testnet=args.create_account_testnet,
+        account_name=args.account_name,
+        inferenced_path=args.inferenced_path
     )
 
 
@@ -104,6 +121,7 @@ def check_balances_args(args):
     check_balances(
         node_url=args.node_url,
     )
+
 
 
 def main():
@@ -181,7 +199,7 @@ Examples:
         """,
         formatter_class=argparse.RawTextHelpFormatter
     )
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(dest='command')
 
     parser_run = subparsers.add_parser(
         "measure",
@@ -194,7 +212,7 @@ Examples:
         help="Path to the SQLite database",
     )
     parser_run.add_argument(
-        "--node_url", type=str, required=True, help="Node URL"
+        "--node_url", type=str, required=True, help="Node URL (used for blockchain connection and testnet account creation)"
     )
     parser_run.add_argument(
         "--model_name", type=str, required=True, help="Model name"
@@ -210,6 +228,15 @@ Examples:
     )
     parser_run.add_argument(
         "--old-sign", action="store_true", help="Use legacy signing method for backward compatibility"
+    )
+    parser_run.add_argument(
+        "--create-account-testnet", action="store_true", help="Automatically create account and export key for testnet using --node_url before running experiment"
+    )
+    parser_run.add_argument(
+        "--account-name", type=str, required=False, help="Account name for testnet account creation (optional if --create-account-testnet)"
+    )
+    parser_run.add_argument(
+        "--inferenced-path", type=str, default="./inferenced", help="Path to the inferenced binary (default: ./inferenced, fallback: inferenced in PATH)"
     )
 
     parser_run.add_argument(
@@ -349,6 +376,15 @@ Examples:
     parser_yaml.add_argument(
         "--old-sign", action="store_true", help="Use legacy signing method for backward compatibility"
     )
+    parser_yaml.add_argument(
+        "--create-account-testnet", action="store_true", help="Automatically create account and export key for testnet using --node_url before running experiment"
+    )
+    parser_yaml.add_argument(
+        "--account-name", type=str, required=False, help="Account name for testnet account creation (optional if --create-account-testnet)"
+    )
+    parser_yaml.add_argument(
+        "--inferenced-path", type=str, default="./inferenced", help="Path to the inferenced binary (default: ./inferenced, fallback: inferenced in PATH)"
+    )
 
     parser_yaml.set_defaults(func=run_experiments_from_yaml_args)
 
@@ -363,7 +399,7 @@ Examples:
         help="Path to the SQLite database",
     )
     parser_stress.add_argument(
-        "--node_url", type=str, required=True, help="Node URL"
+        "--node_url", type=str, required=True, help="Node URL (used for blockchain connection and testnet account creation)"
     )
     parser_stress.add_argument(
         "--model_name", type=str, required=True, help="Model name"
@@ -379,6 +415,15 @@ Examples:
     )
     parser_stress.add_argument(
         "--old-sign", action="store_true", help="Use legacy signing method for backward compatibility"
+    )
+    parser_stress.add_argument(
+        "--create-account-testnet", action="store_true", help="Automatically create account and export key for testnet using --node_url before running experiment"
+    )
+    parser_stress.add_argument(
+        "--account-name", type=str, required=False, help="Account name for testnet account creation (optional if --create-account-testnet)"
+    )
+    parser_stress.add_argument(
+        "--inferenced-path", type=str, default="./inferenced", help="Path to the inferenced binary (default: ./inferenced, fallback: inferenced in PATH)"
     )
 
     parser_stress.add_argument(
@@ -421,6 +466,8 @@ Examples:
         help="Node URL to check balance on.",
     )
     parser_balances.set_defaults(func=check_balances_args)
+
+
 
     def default_function(args):
         parser.print_help()

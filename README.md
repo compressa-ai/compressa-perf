@@ -1,6 +1,6 @@
 # Compressa Performance Measurement Tool
 
-This tool is designed to measure the performance of Compressa models.  
+This tool is designed to measure the performance of Compressa models.
 It uses the OpenAI API to run inference tasks and stores the results in a SQLite database.
 
 ## Installation
@@ -53,9 +53,30 @@ pip install compressa-perf
     [--no-sign] [--old-sign] [--db path/to/your.sqlite]
 ```
 
+### 3. Run experiment with automatic testnet account creation
+
+For testnets, you can automatically create an account and export its private key:
+
+```bash
+❯ compressa-perf measure \
+    --node_url http://testnet.node.url:8545 \
+    --model_name Qwen/Qwen2.5-7B-Instruct \
+    --create-account-testnet \
+    --account-name "myaccount" \
+    --experiment_name "Testnet Run" \
+    --num_tasks 10 \
+    --num_runners 2 \
+    --generate_prompts \
+    --num_prompts 100 \
+    --prompt_length 1000 \
+    [--inferenced-path ./inferenced] [--db path/to/your.sqlite]
+```
+
+**Note:** The `--create-account-testnet` option requires the `inferenced` binary to be available either at the path specified by `--inferenced-path` (default: `./inferenced`) or in your system PATH.
+
 Full parameter list can be obtained with `compressa-perf measure -h`.
 
-### 3. Run set of experiments from YAML file
+### 4. Run set of experiments from YAML file
 
 You can describe a set of experiments in a YAML file and run them on different services in one command:
 
@@ -85,6 +106,13 @@ You can override values from the YAML file using command-line options:
 ❯ compressa-perf measure-from-yaml \
     --model_name Qwen/Qwen2.5-14B-Instruct \
     --private_key_hex 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef \
+    config.yml
+
+# Use testnet account creation
+❯ compressa-perf measure-from-yaml \
+    --node_url http://testnet.node.url:8545 \
+    --create-account-testnet \
+    --account-name "testuser" \
     config.yml
 ```
 
@@ -118,7 +146,7 @@ Example of YAML file:
   account_address: "0x1234567890abcdef1234567890abcdef12345678"
 ```
 
-### 4. Run a continuous stress test (infinite requests, windowed metrics)
+### 5. Run a continuous stress test (infinite requests, windowed metrics)
 
 > **WIP:** This feature is under active development. Interface and output may change.
 
@@ -131,14 +159,37 @@ Example of YAML file:
     --experiment_name "Stress Test" \
     --num_runners 10 \
     --report_freq_min 1 \
-    [--generate_prompts] [--num_prompts 100] [--prompt_length 100] [--max_tokens 1000] [--description ...] [--prompts_file ...] [--no-sign] [--old-sign] [--db path/to/your.sqlite]
+    [--generate_prompts] \
+    [--num_prompts 100] \
+    [--prompt_length 100] \
+    [--max_tokens 1000] \
+    [--description ...] \
+    [--prompts_file ...] \
+    [--no-sign] \
+    [--old-sign] \[--db path/to/your.sqlite]
 ```
 
-- This command will run an infinite stress test, periodically reporting windowed metrics (TTFT, latency, throughput, etc.).
-- Use `Ctrl+C` to stop. Metrics are stored in the database (default: `compressa-perf-db.sqlite`).
+You can also use testnet account creation with the stress test:
+
+```bash
+❯ compressa-perf stress \
+    --node_url http://testnet.node.url:8545 \
+    --model_name Qwen/Qwen2.5-7B-Instruct \
+    --create-account-testnet \
+    --account-name "stresstest" \
+    --experiment_name "Stress Test" \
+    --num_runners 10 \
+    --report_freq_min 1 \
+    --generate_prompts \
+    [--inferenced-path ./inferenced] [--db path/to/your.sqlite]
+```
+
+Features:
+- This command will run an infinite stress test, periodically reporting windowed metrics (TTFT, latency, throughput, etc.)
+- Use `Ctrl+C` to stop. Metrics are stored in the database (default: `compressa-perf-db.sqlite`)
 - Full parameter list: `compressa-perf stress -h`
 
-### 5. Check account balance on a node
+### 6. Check account balance on a node
 
 ```bash
 ❯ compressa-perf check-balances --node_url http://36.189.234.237:19252
@@ -157,13 +208,14 @@ Node URL: http://36.189.234.237:19252
 | http://36.189.234.237:19254 |      118 | Qwen/Qwen2.5-7B-Instruct | 2800798054 | gonka1xrqrkzr4ypgk3rdrdmwp5xyxmx30t5mzz6dctk |
 ```
 
-- This command checks the balance of the account on the specified node.
+This command checks the balance of the account on the specified node.
 
-### 6. List experiments
+### 7. List experiments
 
 You can select experiments by name, parameters, or metrics (or substrings in these fields) via `compressa-perf list` command.
 
 For example:
+
 ```bash
 ❯ compressa-perf list \
     --show-metrics \
@@ -171,26 +223,48 @@ For example:
     --param-filter avg_n_input=30
 ```
 
+You can also recompute all metrics before listing:
+
+```bash
+❯ compressa-perf list \
+    --recompute \
+    --show-metrics \
+    --name-filter "Stress Test"
+```
+
+Export experiment data to CSV:
+
+```bash
+❯ compressa-perf list \
+    --show-parameters \
+    --show-metrics \
+    --csv-file experiments.csv
+```
+
+Example output:
+
+```
 List of Experiments:
-+----+----------------------------------------------------------------------------+---------------------+--------+-----------------------+
-|    | ID                                                                         | Name                | Date   | Description           |
-+====+============================================================================+=====================+========+=======================+
-| 25 | Compressa-Qwen2.5-14B-Instruct-Int4 Long Input / Short Output | 5 runners  | 2024-10-03 06:21:45 |        | ttft: 25.0960         |
-|    |                                                                            |                     |        | latency: 52.5916      |
-|    |                                                                            |                     |        | tpot: 0.5530          |
-|    |                                                                            |                     |        | throughput: 2891.0323 |
-+----+----------------------------------------------------------------------------+---------------------+--------+-----------------------+
-| 23 | Compressa-Qwen2.5-14B-Instruct-Int4 Long Input / Short Output | 4 runners  | 2024-10-03 06:14:57 |        | ttft: 17.1862         |
-|    |                                                                            |                     |        | latency: 37.9612      |
-|    |                                                                            |                     |        | tpot: 0.3954          |
-|    |                                                                            |                     |        | throughput: 3230.8769 |
-+----+----------------------------------------------------------------------------+---------------------+--------+-----------------------+
++----+-------------------------------------------------------------------+---------------------+--------+----------------------+
+| ID | Name                                                              | Date                | Status | Metrics              |
++====+===================================================================+=====================+========+======================+
+| 25 | Compressa-Qwen2.5-14B-Instruct-Int4 Long Input / Short Output     | 2024-10-03 06:21:45 |        | ttft: 25.0960        |
+|    | 5 runners                                                         |                     |        | latency: 52.5916     |
+|    |                                                                   |                     |        | tpot: 0.5530         |
+|    |                                                                   |                     |        | throughput: 2891.03  |
++----+-------------------------------------------------------------------+---------------------+--------+----------------------+
+| 23 | Compressa-Qwen2.5-14B-Instruct-Int4 Long Input / Short Output     | 2024-10-03 06:14:57 |        | ttft: 17.1862        |
+|    | 4 runners                                                         |                     |        | latency: 37.9612     |
+|    |                                                                   |                     |        | tpot: 0.3954         |
+|    |                                                                   |                     |        | throughput: 3230.88  |
++----+-------------------------------------------------------------------+---------------------+--------+----------------------+
 ```
 
 Full parameter list:
+
 ```bash
 ❯ compressa-perf list -h
-usage: compressa-perf list [-h] [--db DB] [--show-parameters] [--show-metrics] [--name-filter NAME_FILTER] [--param-filter PARAM_FILTER]
+usage: compressa-perf list [-h] [--db DB] [--show-parameters] [--show-metrics] [--name-filter NAME_FILTER] [--param-filter PARAM_FILTER] [--recompute] [--csv-file CSV_FILE]
 
 options:
   -h, --help            show this help message and exit
@@ -201,12 +275,20 @@ options:
                         Filter experiments by substring in the name
   --param-filter PARAM_FILTER
                         Filter experiments by parameter value (e.g., paramkey=value_substring)
+  --recompute           Recompute metrics before listing experiments
+  --csv-file CSV_FILE   Path to the CSV file to save the experiments
 ```
 
-### 7. Generate a report for an experiment
+### 8. Generate a report for an experiment
 
 ```bash
 ❯ compressa-perf report <EXPERIMENT_ID> [--db path/to/your.sqlite] [--recompute]
+```
+
+The `--recompute` option will recalculate all metrics for the experiment before generating the report:
+
+```bash
+❯ compressa-perf report 3 --recompute
 ```
 
 Output example:
@@ -253,6 +335,28 @@ Experiment Metrics:
 ╘═══════════════════════╧══════════╛
 ```
 
+## Command-line Options
+
+### Common Options
+
+- `--db`: Path to the SQLite database (default: `compressa-perf-db.sqlite`)
+- `--no-sign`: Send requests without signing (for unsigned mode)
+- `--old-sign`: Use legacy signing method for backward compatibility
+- `--inferenced-path`: Path to the inferenced binary (default: `./inferenced`, fallback: `inferenced` in PATH)
+
+### Testnet Account Creation
+
+- `--create-account-testnet`: Automatically create account and export key for testnet using `--node_url`
+- `--account-name`: Account name for testnet account creation (optional, defaults to "testnetuser")
+
+When using `--create-account-testnet`, the tool will:
+
+1. Create a new account on the testnet using the `inferenced` binary
+2. Export the private key for the account
+3. Use the created account address and private key for the experiment
+
+This is particularly useful for testnets where you need fresh accounts for testing.
+
 For more information on available commands and options, run:
 
 ```bash
@@ -262,3 +366,4 @@ compressa-perf --help
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+
