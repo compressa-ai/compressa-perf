@@ -42,6 +42,7 @@ class DBWriterThread:
             with conn:
                 for it in items_batch:
                     self._insert(conn, it)
+                    # conn.commit()
             for _ in items_batch:
                 self.queue.task_done()
             items_batch.clear()
