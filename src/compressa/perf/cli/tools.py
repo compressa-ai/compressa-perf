@@ -34,6 +34,7 @@ from compressa.perf.experiment.config import (
 from compressa.perf.experiment.continuous_stress import ContinuousStressTestRunner
 
 from compressa.utils import get_logger
+import uuid
 
 DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
 
@@ -101,6 +102,7 @@ def read_prompts_from_file(file_path, prompt_length):
 def save_report(parameters, _result: dict, model_params: dict, hw_params: dict, report_path: str, report_mode: str) -> str:
     result = {k: round(v, 3) for k, v in zip(_result.keys(), _result.values())}
     date = datetime.datetime.today().strftime('%d.%m.%Y')
+    unique_id = str(uuid.uuid4())[:8]
     exp_df = pd.DataFrame.from_dict(parameters, orient='index').reset_index()
     model_data =  {**model_params, **hw_params}
     model_df = pd.DataFrame.from_dict(model_data, orient='index').reset_index()
@@ -109,19 +111,19 @@ def save_report(parameters, _result: dict, model_params: dict, hw_params: dict, 
     model_df.columns = ["Model Parameter", "Value"]
     exp_df.columns = ["Experiment Parameter", "Value"]
     if report_mode == "csv":
-        model_df.to_csv(f"{report_path}_model_info_{date}.{report_mode}", index=False)
-        result_df.to_csv(f"{report_path}_metrics_{date}.{report_mode}", index=False)
-        exp_df.to_csv(f"{report_path}_experiment_parameters_{date}.{report_mode}", index=False)
+        model_df.to_csv(f"{report_path}_model_info_{date}_{unique_id}.{report_mode}", index=False)
+        result_df.to_csv(f"{report_path}_metrics_{date}_{unique_id}.{report_mode}", index=False)
+        exp_df.to_csv(f"{report_path}_experiment_parameters_{date}_{unique_id}.{report_mode}", index=False)
     elif report_mode == "md":
-        with open(f"{report_path}_model_info_{date}.{report_mode}", 'w') as md:
+        with open(f"{report_path}_model_info_{date}_{unique_id}.{report_mode}", 'w') as md:
             model_df.to_markdown(buf=md, tablefmt="grid")
-        with open(f"{report_path}_metrics_{date}.{report_mode}", 'w') as md:
+        with open(f"{report_path}_metrics_{date}_{unique_id}.{report_mode}", 'w') as md:
             result_df.to_markdown(buf=md, tablefmt="grid")
-        with open(f"{report_path}_experiment_parameters_{date}.{report_mode}", 'w') as md:
+        with open(f"{report_path}_experiment_parameters_{date}_{unique_id}.{report_mode}", 'w') as md:
             exp_df.to_markdown(buf=md, tablefmt="grid")
     else:
-        report_to_pdf([model_df, exp_df, result_df], f"{report_path}_{date}.{report_mode}")
-    logger.info(f"Experiment results saved to {report_path}_{date}.{report_mode} file")
+        report_to_pdf([model_df, exp_df, result_df], f"{report_path}_{date}_{unique_id}.{report_mode}")
+    logger.info(f"Experiment results saved to {report_path}_{date}_{unique_id}.{report_mode} file")
     return report_path
 
 def get_model_info(url: str) -> dict:
