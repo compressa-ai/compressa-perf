@@ -5,7 +5,7 @@ import time
 import requests
 import uuid
 import pandas as pd
-
+import os
 from compressa.perf.experiment.inference import ExperimentRunner
 from compressa.perf.experiment.analysis import Analyzer
 from compressa.perf.data.models import Experiment
@@ -116,6 +116,8 @@ def wait_writer(db_writer, max_timeout=None, timeout=10.0):
 
 
 def save_report(parameters, _result: dict, model_params: dict, hw_params: dict, report_path: str, report_mode: str) -> str:
+    if not os.path.exists("results"):
+        os.makedirs("results")
     result = {k: round(v, 3) for k, v in zip(_result.keys(), _result.values())}
     date = datetime.datetime.today().strftime('%d.%m.%Y')
     unique_id = str(uuid.uuid4())[:8]
