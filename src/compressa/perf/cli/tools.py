@@ -1,7 +1,7 @@
 import sqlite3
 from tabulate import tabulate
 from typing import List
-import requests
+import timeimport requests
 
 import pandas as pd
 
@@ -98,6 +98,21 @@ def generate_prompts_list(
 def read_prompts_from_file(file_path, prompt_length):
     df = pd.read_csv(file_path, header=None)
     return df[0].map(lambda x: x[:prompt_length]).tolist()
+
+
+def wait_writer(db_writer, max_timeout=None, timeout=10.0):
+    start = time.time()
+    while True:
+        done = db_writer.wait_for_write(timeout=timeout)
+        if done:
+            print("All results saved to database.")
+            return True
+        print("Waiting for saving to database...")
+
+        if max_timeout is not None and (time.time() - start) > max_timeout:
+            raise Exception("Saving to database failed")
+            return False
+
 
 def save_report(parameters, _result: dict, model_params: dict, hw_params: dict, report_path: str, report_mode: str) -> str:
     result = {k: round(v, 3) for k, v in zip(_result.keys(), _result.values())}
@@ -218,7 +233,8 @@ def run_experiment(
             seed=seed,
         )
 
-        db_writer.wait_for_write()
+        wait_writer(db_writer)
+        
         analyzer = Analyzer(conn)
         metrics, _io_stats = analyzer.compute_metrics(experiment.id)
         _parameters = {
