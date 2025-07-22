@@ -1,4 +1,3 @@
-import sqlite3
 from compressa.perf.db.writer import DBWriterThread
 
 _db_writer_singleton: DBWriterThread = None

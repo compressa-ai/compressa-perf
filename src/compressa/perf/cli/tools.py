@@ -1,8 +1,9 @@
 import sqlite3
 from tabulate import tabulate
 from typing import List
-import timeimport requests
-
+import time
+import requests
+import uuid
 import pandas as pd
 
 from compressa.perf.experiment.inference import ExperimentRunner
@@ -34,7 +35,7 @@ from compressa.perf.experiment.config import (
 from compressa.perf.experiment.continuous_stress import ContinuousStressTestRunner
 
 from compressa.utils import get_logger
-import uuid
+
 
 DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
 
@@ -154,7 +155,6 @@ def get_model_info(url: str) -> dict:
     return result
 
 def get_hw_info(url: str) -> dict:
-    result = {}
     r = requests.get(f"{url}gpu_info")
     if r.status_code != 200:
         logger.error(f"Hardware params request failed - {r.status_code}")
@@ -195,9 +195,7 @@ def run_experiment(
         report_file = "experiment_report"
         logger.warning(f"Default report file name - experiment_report")
 
-    with sqlite3.connect(db, timeout=10.0) as conn:
-        # conn.execute("PRAGMA journal_mode=MEMORY;")
-        # conn.execute("PRAGMA journal_mode=WAL;")
+    with sqlite3.connect(db) as conn:
         create_tables(conn)
         start_db_writer(db)
         db_writer = get_db_writer()
@@ -255,7 +253,7 @@ def run_experiment(
         model_info = get_model_info(openai_url)
         saved_report = save_report(parameters, metrics, model_info, hw_info, report_file, report_mode)
         db_writer.wait_for_write()
-        stop_db_writer()
+        
 
 
     report_experiment(
@@ -263,9 +261,8 @@ def run_experiment(
         db=db,
         recompute=False
     )
-    
-    
-    return experiment.id
+
+    stop_db_writer()
 
 
 def report_experiment(
@@ -273,19 +270,14 @@ def report_experiment(
     db: str = DEFAULT_DB_PATH,
     recompute: bool = False,
 ):
-    with sqlite3.connect(db, timeout=10.0) as conn:
-        try:
-            ensure_db_initialized(conn)
-            start_db_writer(db)
-            db_writer = get_db_writer()
-            experiment = fetch_experiment_by_id(conn, experiment_id)
-        except sqlite3.OperationalError:
-            logger.warning("Database connection failed")
-            experiment = None
+    with sqlite3.connect(db) as conn:
+        ensure_db_initialized(conn)
+        start_db_writer(db)
+        db_writer = get_db_writer()
+        experiment = fetch_experiment_by_id(conn, experiment_id)
         if not experiment:
             logger.error(f"Error: Experiment with ID {experiment_id} not found.")
-            # sys.exit(1)
-            return
+            sys.exit(1)
 
         analyzer = Analyzer(conn)
         
@@ -333,7 +325,7 @@ def list_experiments(
     recompute: bool = False,
     csv_file: str = None,
 ):
-    with sqlite3.connect(db, timeout=10.0) as conn:
+    with sqlite3.connect(db) as conn:
         ensure_db_initialized(conn)
 
         experiments = fetch_all_experiments(conn)
@@ -516,7 +508,7 @@ def run_continuous_stress_test(
     if not api_key:
         raise ValueError("OPENAI_API_KEY is not set")
 
-    with sqlite3.connect(db, timeout=10.0) as conn:
+    with sqlite3.connect(db) as conn:
         create_tables(conn)
         start_db_writer(db)
         db_writer = get_db_writer()
