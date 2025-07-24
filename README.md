@@ -26,13 +26,10 @@ pip install compressa-perf
 ❯ compressa-perf measure \
     --db some_db.sqlite \
     --openai_url https://some-api-url.ru/ \
-    --serv_api_url https://service-api-url.ru/ \
     --api_key "${OPENAI_API_KEY}" \
     --model_name Compressa-Qwen2.5-14B-Instruct \
     --experiment_name "File Prompts Run" \
     --prompts_file resources/prompts.csv \
-    --report_file results/experiment \
-    --report_mode pdf \
     --num_tasks 1000 \
     --num_runners 100
 ```
@@ -43,7 +40,6 @@ pip install compressa-perf
 ❯ compressa-perf measure \
     --db some_db.sqlite \
     --openai_url https://some-api-url.ru/chat-2/v1/ \
-    --serv_api_url https://service-api-url.ru/ \
     --api_key "${OPENAI_API_KEY}" \
     --model_name Compressa-Qwen2.5-14B-Instruct \
     --experiment_name "Generated Prompts Run" \
@@ -51,8 +47,6 @@ pip install compressa-perf
     --num_runners 2 \
     --generate_prompts \
     --num_prompts 1000 \
-    --report_file results/experiment \
-    --report_mode pdf \
     --prompt_length 5000
 ```
 
@@ -71,14 +65,11 @@ Example of YAML file:
 
 ```yaml
 - openai_url: http://localhost:5000/v1/
-  serv_api_url: http://localhost:5100/v1/
   api_key: ${OPENAI_API_KEY}
   model_name: Compressa-LLM
   experiment_name: "File Prompts Run 1"
   description: "Experiment using prompts from a file with 500 tasks and 5 runners"
   prompts_file: resources/prompts.csv
-  report_file: results/experiment
-  report_mode: pdf
   num_tasks: 500
   num_runners: 5
   generate_prompts: false
@@ -87,14 +78,11 @@ Example of YAML file:
   max_tokens: 1000 
 
 - openai_url: https://some-api-url/v1/
-  serv_api_url: http://localhost:5100/v1/
   api_key: ${OPENAI_API_KEY}
   model_name: Compressa-LLM
   experiment_name: "File Prompts Run 2"
   description: "Experiment using prompts from a file with 20 tasks and 10 runners"
   prompts_file: resources/prompts.csv
-  report_file: results/experiment
-  report_mode: pdf
   num_tasks: 20
   num_runners: 10
   generate_prompts: true
@@ -106,14 +94,14 @@ Example of YAML file:
 **List of Parameters**
 
 - `openai_url` - url to chat completion endpoint - `REQUIRED`
-- `serv_api_url` - url to service handlers of the Compressa platform
+- `serv_api_url` - url to service handlers of the Compressa platform - default is `http://localhost:5100/v1/` (if `None` - the inference only will run)
 - `api_key` - API key - `REQUIRED`
 - `model_name` - served model name - `REQUIRED`
 - `experiment_name` - `REQUIRED`
 - `description`
 - `prompts_file` - path to the file with prompts
-- `report_file` - path to the report file
-- `report_mode` - report file extension (`.csv`, `.md`, `.pdf`)
+- `report_file` - path to the report file - default is `results/experiment`
+- `report_mode` - report file extension (`.csv`, `.md`, `.pdf`) - default is `.pdf`
 - `num_tasks`
 - `num_runners`
 - `generate_prompts` - `true` or `false`
