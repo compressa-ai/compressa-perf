@@ -157,6 +157,9 @@ def get_model_info(url: str) -> dict:
     return result
 
 def get_hw_info(url: str) -> dict:
+    if not url:
+        logger.warning(f"No Compressa Platform API provided... Trying defaut API...")
+        url = "http://localhost:5100/v1/"
     r = requests.get(f"{url}gpu_info")
     if r.status_code != 200:
         logger.error(f"Hardware params request failed - {r.status_code}")
@@ -194,8 +197,8 @@ def run_experiment(
     if report_mode not in ["pdf", "md", "csv"]:
         raise ValueError("Unknown report mode")
     if not report_file:
-        report_file = "experiment_report"
-        logger.warning(f"Default report file name - experiment_report")
+        report_file = "results/experiment_report"
+        logger.warning(f"Default report file name - results/experiment_report")
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
@@ -244,13 +247,7 @@ def run_experiment(
         }
         io_stats = {k.upper(): round(v, 2) for k, v in zip(_io_stats.keys(), _io_stats.values())}
         parameters = {**_parameters, **io_stats}
-        if not serv_api_url:
-            logger.warning(f"No Compressa Platform API provided")
-            hw_info = {"DRIVER VERSION": "unknown",
-                       "CUDA VERSION": "unknown",
-                       "HARDWARE": "unknown",}
-        else:
-            hw_info = get_hw_info(serv_api_url)
+        hw_info = get_hw_info(serv_api_url)
         hw_info["OPENAI_URL"] = openai_url
         model_info = get_model_info(openai_url)
         saved_report = save_report(parameters, metrics, model_info, hw_info, report_file, report_mode)
