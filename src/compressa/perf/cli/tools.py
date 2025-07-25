@@ -133,12 +133,13 @@ def save_report(parameters, _result: dict, model_params: dict, hw_params: dict, 
         result_df.to_csv(f"{report_path}_metrics_{date}_{unique_id}.{report_mode}", index=False)
         exp_df.to_csv(f"{report_path}_experiment_parameters_{date}_{unique_id}.{report_mode}", index=False)
     elif report_mode == "md":
-        with open(f"{report_path}_model_info_{date}_{unique_id}.{report_mode}", 'w') as md:
-            model_df.to_markdown(buf=md, tablefmt="grid")
-        with open(f"{report_path}_metrics_{date}_{unique_id}.{report_mode}", 'w') as md:
-            result_df.to_markdown(buf=md, tablefmt="grid")
+        md_parts = [
+            model_df.to_markdown(tablefmt="grid"),
+            result_df.to_markdown(tablefmt="grid"),
+            exp_df.to_markdown(tablefmt="grid")
+            ]
         with open(f"{report_path}_experiment_parameters_{date}_{unique_id}.{report_mode}", 'w') as md:
-            exp_df.to_markdown(buf=md, tablefmt="grid")
+            md.write("\n\n".join(md_parts))
     else:
         report_to_pdf([model_df, exp_df, result_df], f"{report_path}_{date}_{unique_id}.{report_mode}")
     logger.info(f"Experiment results saved to {report_path}_{date}_{unique_id}.{report_mode} file")
@@ -160,7 +161,13 @@ def get_hw_info(url: str) -> dict:
     if not url:
         logger.warning(f"No Compressa Platform API provided... Trying defaut API...")
         url = "http://localhost:5100/v1/"
-    r = requests.get(f"{url}gpu_info")
+    try:
+        r = requests.get(f"{url}gpu_info")
+    except:
+        logger.error(f"Hardware params request failed")
+        return {"DRIVER VERSION": "unknown",
+                           "CUDA VERSION": "unknown",
+                           "HARDWARE": "unknown",}
     if r.status_code != 200:
         logger.error(f"Hardware params request failed - {r.status_code}")
         return {"DRIVER VERSION": "unknown",

@@ -8,13 +8,13 @@ from dataclasses import dataclass
 @dataclass
 class ExperimentConfig:
     openai_url: str
-    serv_api_url: str
     api_key: str
     model_name: str
     experiment_name: str
     description: str
     num_tasks: int
     num_runners: int
+    serv_api_url: str = None
     generate_prompts: bool = False
     num_prompts: int = None
     prompt_length: int = None
