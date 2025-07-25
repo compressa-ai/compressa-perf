@@ -2,8 +2,10 @@ import sqlite3
 from tabulate import tabulate
 from typing import List
 import time
+import requests
+import uuid
 import pandas as pd
-
+import os
 from compressa.perf.experiment.inference import ExperimentRunner
 from compressa.perf.experiment.analysis import Analyzer
 from compressa.perf.data.models import Experiment
@@ -21,6 +23,7 @@ from compressa.perf.db.setup import (
     stop_db_writer,
     get_db_writer,
 )
+from compressa.perf.cli.pdf_tools import report_to_pdf
 import datetime
 import sys
 import random
@@ -32,6 +35,7 @@ from compressa.perf.experiment.config import (
 from compressa.perf.experiment.continuous_stress import ContinuousStressTestRunner
 
 from compressa.utils import get_logger
+
 
 DEFAULT_DB_PATH = "compressa-perf-db.sqlite"
 
@@ -111,14 +115,79 @@ def wait_writer(db_writer, max_timeout=None, timeout=10.0):
             return False
 
 
+def save_report(parameters, _result: dict, model_params: dict, hw_params: dict, report_path: str, report_mode: str) -> str:
+    if not os.path.exists("results"):
+        os.makedirs("results")
+    result = {k: round(v, 3) for k, v in zip(_result.keys(), _result.values())}
+    date = datetime.datetime.today().strftime('%d.%m.%Y')
+    unique_id = str(uuid.uuid4())[:8]
+    exp_df = pd.DataFrame.from_dict(parameters, orient='index').reset_index()
+    model_data =  {**model_params, **hw_params}
+    model_df = pd.DataFrame.from_dict(model_data, orient='index').reset_index()
+    result_df = pd.DataFrame.from_dict(result, orient='index').reset_index()
+    result_df.columns = ["Metric", "Value"]
+    model_df.columns = ["Model Parameter", "Value"]
+    exp_df.columns = ["Experiment Parameter", "Value"]
+    if report_mode == "csv":
+        model_df.to_csv(f"{report_path}_model_info_{date}_{unique_id}.{report_mode}", index=False)
+        result_df.to_csv(f"{report_path}_metrics_{date}_{unique_id}.{report_mode}", index=False)
+        exp_df.to_csv(f"{report_path}_experiment_parameters_{date}_{unique_id}.{report_mode}", index=False)
+    elif report_mode == "md":
+        md_parts = [
+            model_df.to_markdown(tablefmt="grid"),
+            result_df.to_markdown(tablefmt="grid"),
+            exp_df.to_markdown(tablefmt="grid")
+            ]
+        with open(f"{report_path}_experiment_parameters_{date}_{unique_id}.{report_mode}", 'w') as md:
+            md.write("\n\n".join(md_parts))
+    else:
+        report_to_pdf([model_df, exp_df, result_df], f"{report_path}_{date}_{unique_id}.{report_mode}")
+    logger.info(f"Experiment results saved to {report_path}_{date}_{unique_id}.{report_mode} file")
+    return report_path
+
+def get_model_info(url: str) -> dict:
+    result = {}
+    r = requests.get(f"{url}models")
+    if r.status_code != 200:
+        logger.error(f"Model params request failed - {r.status_code}")
+        return {}
+    data = r.json()["data"][0]
+    result["MODEL"] = data["id"]
+    result["ENGINE"] = data.get("owned_by", "")
+    result["MAX_MODEL_LENGTH"] = data.get("max_model_len", "")
+    return result
+
+def get_hw_info(url: str) -> dict:
+    if not url:
+        logger.warning(f"No Compressa Platform API provided... Trying defaut API...")
+        url = "http://localhost:5100/v1/"
+    try:
+        r = requests.get(f"{url}gpu_info")
+    except:
+        logger.error(f"Hardware params request failed")
+        return {"DRIVER VERSION": "unknown",
+                           "CUDA VERSION": "unknown",
+                           "HARDWARE": "unknown",}
+    if r.status_code != 200:
+        logger.error(f"Hardware params request failed - {r.status_code}")
+        return {"DRIVER VERSION": "unknown",
+                           "CUDA VERSION": "unknown",
+                           "HARDWARE": "unknown",
+                }
+    data = r.json()
+    return data
+
 def run_experiment(
     db: str = DEFAULT_DB_PATH,
     api_key: str = None,
     openai_url: str = None,
+    serv_api_url: str = None,
     model_name: str = None,
     experiment_name: str = None,
     description: str = None,
     prompts_file: str = None,
+    report_file: str = None,
+    report_mode: str = "pdf",
     num_tasks: int = 100,
     num_runners: int = 10,
     generate_prompts: bool = False,
@@ -129,6 +198,14 @@ def run_experiment(
 ):
     if not api_key:
         raise ValueError("OPENAI_API_KEY is not set")
+    if not report_mode:
+        report_mode = "pdf"
+        logger.warning(f"Default report mode - .pdf")
+    if report_mode not in ["pdf", "md", "csv"]:
+        raise ValueError("Unknown report mode")
+    if not report_file:
+        report_file = "results/experiment_report"
+        logger.warning(f"Default report file name - results/experiment_report")
 
     with sqlite3.connect(db) as conn:
         create_tables(conn)
@@ -169,13 +246,29 @@ def run_experiment(
         wait_writer(db_writer)
         
         analyzer = Analyzer(conn)
-        analyzer.compute_metrics(experiment.id)
-        report_experiment(
-            experiment_id=experiment.id,
-            db=db,
-            recompute=False
-        )
-        stop_db_writer()
+        metrics, _io_stats = analyzer.compute_metrics(experiment.id)
+        _parameters = {
+            "NUM_WORKERS": num_runners,
+            "NUM_TASKS": num_tasks,
+            "MAX_TOKENS": max_tokens,
+        }
+        io_stats = {k.upper(): round(v, 2) for k, v in zip(_io_stats.keys(), _io_stats.values())}
+        parameters = {**_parameters, **io_stats}
+        hw_info = get_hw_info(serv_api_url)
+        hw_info["OPENAI_URL"] = openai_url
+        model_info = get_model_info(openai_url)
+        saved_report = save_report(parameters, metrics, model_info, hw_info, report_file, report_mode)
+        db_writer.wait_for_write()
+        
+
+
+    report_experiment(
+        experiment_id=experiment.id,
+        db=db,
+        recompute=False
+    )
+
+    stop_db_writer()
 
 
 def report_experiment(
@@ -187,10 +280,9 @@ def report_experiment(
         ensure_db_initialized(conn)
         start_db_writer(db)
         db_writer = get_db_writer()
-        
         experiment = fetch_experiment_by_id(conn, experiment_id)
         if not experiment:
-            print(f"Error: Experiment with ID {experiment_id} not found.")
+            logger.error(f"Error: Experiment with ID {experiment_id} not found.")
             sys.exit(1)
 
         analyzer = Analyzer(conn)
@@ -198,7 +290,6 @@ def report_experiment(
         if recompute:
             clear_metrics_by_experiment(conn, experiment_id)
             analyzer.compute_metrics(experiment_id)
-        
         parameters = fetch_parameters_by_experiment(conn, experiment_id)
         metrics = fetch_metrics_by_experiment(conn, experiment_id)
         
@@ -362,20 +453,23 @@ def run_experiments_from_yaml(
     db: str = DEFAULT_DB_PATH,
     api_key: str = None,
 ):
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY is not set")
+    # if not api_key:
+    #     raise ValueError("OPENAI_API_KEY is not set")
 
     configs = load_yaml_configs(yaml_file)
-    
+    experiment_ids = []
     for config in configs:
-        run_experiment(
+        experiment_id = run_experiment(
             db=db,
-            api_key=api_key,
+            api_key=config.api_key,
             openai_url=config.openai_url,
+            serv_api_url=config.serv_api_url,
             model_name=config.model_name,
             experiment_name=config.experiment_name,
             description=config.description,
             prompts_file=config.prompts_file,
+            report_file=config.report_file,
+            report_mode=config.report_mode,
             num_tasks=config.num_tasks,
             num_runners=config.num_runners,
             generate_prompts=config.generate_prompts,
@@ -384,6 +478,15 @@ def run_experiments_from_yaml(
             max_tokens=config.max_tokens,
             seed=config.seed,
         )
+        experiment_ids.append(experiment_id)
+
+    # Report all experiments after completion
+    # for experiment_id in experiment_ids:
+    #     report_experiment(
+    #         experiment_id=experiment_id,
+    #         db=db,
+    #         recompute=False
+    #     )
     
     list_experiments(db=db)
 

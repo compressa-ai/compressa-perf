@@ -266,6 +266,7 @@ class Analyzer:
                 timestamp=now
             )
             insert_metric(metric)
+            # self.conn.commit()
 
         for key, value in io_stats.items():
             param = Parameter(
@@ -275,6 +276,9 @@ class Analyzer:
                 value=str(value)
             )
             insert_parameter(param)
+            # self.conn.commit()
+
+        return metrics_dict, io_stats
 
     def compute_metrics_for_measurements(
         self,

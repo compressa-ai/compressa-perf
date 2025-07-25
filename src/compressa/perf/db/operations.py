@@ -2,6 +2,7 @@ from typing import List, Optional
 import datetime
 from datetime import datetime
 
+
 from compressa.perf.db.setup import get_db_writer
 from compressa.perf.data.models import (
     Experiment,
@@ -27,7 +28,6 @@ def insert_metric(metric: Metric) -> int:
     db_writer = get_db_writer()
     if db_writer is None:
         raise ValueError("DB writer is not initialized")
-    
     db_writer.push_metric(metric)
     return -1
 
@@ -63,9 +63,9 @@ def fetch_all_experiments(conn) -> List[Experiment]:
 def fetch_metrics_by_experiment(conn, experiment_id: int) -> List[Metric]:
     sql = "SELECT * FROM Metrics WHERE experiment_id = ?"
     cur = conn.cursor()
+    metrics = []
     cur.execute(sql, (experiment_id,))
     rows = cur.fetchall()
-    metrics = []
     for row in rows:
         metrics.append(
             Metric(
@@ -78,10 +78,12 @@ def fetch_metrics_by_experiment(conn, experiment_id: int) -> List[Metric]:
         )
     return metrics
 
+
 def clear_metrics_by_experiment(conn, experiment_id: int) -> None:
     sql = "DELETE FROM Metrics WHERE experiment_id = ?"
     with conn:
         conn.execute(sql, (experiment_id,))
+        
 
 def fetch_parameters_by_experiment(conn, experiment_id: int) -> List[Parameter]:
     sql = "SELECT * FROM Parameters WHERE experiment_id = ?"
@@ -94,9 +96,9 @@ def fetch_parameters_by_experiment(conn, experiment_id: int) -> List[Parameter]:
 def fetch_measurements_by_experiment(conn, experiment_id: int) -> List[Measurement]:
     sql = "SELECT * FROM Measurements WHERE experiment_id = ?"
     cur = conn.cursor()
+    measurements = []
     cur.execute(sql, (experiment_id,))
     rows = cur.fetchall()
-    measurements = []
     for row in rows:
         measurements.append(Measurement(
             id=row[0],

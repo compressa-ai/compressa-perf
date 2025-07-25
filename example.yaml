@@ -1,0 +1,15 @@
+- openai_url: http://localhost:5000/v1/
+  serv_api_url: http://localhost:5100/v1/
+  api_key: ${OPENAI_API_KEY}
+  model_name: Compressa-LLM
+  experiment_name: "File Prompts Run 1"
+  description: "Experiment using prompts from a file with 1000 tasks and 20 runners"
+  prompts_file: resources/prompts.csv
+  report_file: results/experiment
+  report_mode: pdf
+  num_tasks: 1000
+  num_runners: 20
+  generate_prompts: false
+  num_prompts: 0
+  prompt_length: 0
+  max_tokens: 1000
