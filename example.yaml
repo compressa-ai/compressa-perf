@@ -1,5 +1,5 @@
-- openai_url: http://localhost:5001/v1/
-  serv_api_url: http://localhost:5101/v1/
+- openai_url: http://localhost:5000/v1/
+  serv_api_url: http://localhost:5100/v1/
   api_key: ${OPENAI_API_KEY}
   model_name: Compressa-LLM
   experiment_name: "File Prompts Run 1"
