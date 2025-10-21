@@ -63,7 +63,7 @@ class InferenceRunner:
         try:
             response: openai.Stream = self.client.chat.completions.create(
                 model=self.model_name,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[{"role": "user", "content": f"{prompt}"}],
                 max_tokens=max_tokens,
                 stream=True,
                 stream_options={
@@ -87,7 +87,7 @@ class InferenceRunner:
                         ttft = first_token_time - start_time
                     n_chunks += 1
                     response_text += chunk.choices[0].delta.content
-                elif first_token_time == -1 and chunk.choices[0].delta.content is None:
+                elif first_token_time == -1 and not chunk.choices[0].delta.content and not chunk.choices[0].delta.reasoning_content:
                     status = Status.FAILED
                     raise Exception("First token not found in response")
             end_time = time.time()
@@ -194,6 +194,7 @@ class ExperimentRunner:
         max_tokens: int = 1000,
         seed: int = 42,
     ):
+        prompts = [f"{prompt}" for prompt in prompts]
         choise_generator = random.Random(seed)
         all_measurements = []
         with ThreadPoolExecutor(max_workers=self.num_runners) as executor:

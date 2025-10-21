@@ -48,6 +48,7 @@ class ContinuousStressTestRunner:
         self.openai_url = openai_url
         self.model_name = model_name
         self.experiment_id = experiment_id
+        # self.prompts = [f"{prompt}/no_think" for prompt in prompts]
         self.prompts = prompts
         self.num_runners = num_runners
         self.max_tokens = max_tokens
