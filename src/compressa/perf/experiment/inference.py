@@ -24,7 +24,7 @@ import random
 from tqdm import tqdm
 
 logger = get_logger(__name__)
-
+EMPTY_CHUNK_THRESHOLD = 5
 
 class InferenceRunner:
     def __init__(
@@ -63,7 +63,7 @@ class InferenceRunner:
         try:
             response: openai.Stream = self.client.chat.completions.create(
                 model=self.model_name,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[{"role": "user", "content": f"{prompt}"}],
                 max_tokens=max_tokens,
                 stream=True,
                 stream_options={
@@ -74,6 +74,7 @@ class InferenceRunner:
             response_text = ""
             first_token_empty = False
             chunk = None
+            start_counter = 0 # counter of chunks with no content or reasoning
             for chunk in response:
                 if chunk.choices and chunk.choices[0].delta.content is not None:
                     if first_token_time == -1:
@@ -87,23 +88,27 @@ class InferenceRunner:
                         ttft = first_token_time - start_time
                     n_chunks += 1
                     response_text += chunk.choices[0].delta.content
-                elif first_token_time == -1 and chunk.choices[0].delta.content is None:
-                    status = Status.FAILED
-                    raise Exception("First token not found in response")
+                elif first_token_time == -1 and not chunk.choices[0].delta.content and not getattr(chunk.choices[0].delta, "reasoning_content", None):
+                    if start_counter >= EMPTY_CHUNK_THRESHOLD:
+                        status = Status.FAILED
+                        raise Exception(f"First token not found in response after {EMPTY_CHUNK_THRESHOLD} empty chunks with no content or reasoning")
+                    start_counter += 1
+                    continue
             end_time = time.time()
             logger.debug(f"Prompt: {prompt}\nResponse text: {response_text}\n{'#' * 100}")
-
             if not chunk:
                 raise Exception("Chunk not found in response")
                 
-            if not chunk.usage:
+            if not getattr(chunk, "usage", None):
+                usage = None
                 if status == Status.SUCCESS:
-                    logger.error(f"Usage not found in response when success")
-                    raise Exception("Usage not found in response when success")
-
-            usage = chunk.usage
-            n_input = usage.prompt_tokens
-            n_output = usage.completion_tokens
+                    logger.warning(f"Usage not found in response when success")
+                    n_input = 0
+                    n_output = 0
+            else:
+                usage = chunk.usage
+                n_input = usage.prompt_tokens
+                n_output = usage.completion_tokens
 
             assert status == Status.SUCCESS
            

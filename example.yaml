@@ -8,7 +8,7 @@
   report_file: results/experiment
   report_mode: pdf
   num_tasks: 1000
-  num_runners: 20
+  num_runners: 20 # Llama-cpp supports only 1 runner
   generate_prompts: false
   num_prompts: 0
   prompt_length: 0
