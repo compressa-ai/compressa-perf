@@ -25,6 +25,28 @@ from tqdm import tqdm
 
 logger = get_logger(__name__)
 EMPTY_CHUNK_THRESHOLD = 5
+# vLLM reasoning parser (Qwen3 / Qwen3.5) streams thinking as `reasoning`.
+# Older servers use `reasoning_content`. The OpenAI SDK does not declare
+# either field on ChoiceDelta and keeps them in model_extra.
+_DELTA_TEXT_KEYS = ("content", "reasoning", "reasoning_content")
+
+
+def _delta_text(delta) -> str:
+    """Generated text from one stream delta, including Qwen3.5 reasoning."""
+    if delta is None:
+        return ""
+    extra = getattr(delta, "model_extra", None)
+    if not isinstance(extra, dict):
+        extra = getattr(delta, "__pydantic_extra__", None)
+    if not isinstance(extra, dict):
+        extra = {}
+    for key in _DELTA_TEXT_KEYS:
+        value = getattr(delta, key, None)
+        if not isinstance(value, str) or not value:
+            value = extra.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return ""
 
 class InferenceRunner:
     def __init__(
@@ -72,28 +94,29 @@ class InferenceRunner:
             )
 
             response_text = ""
-            first_token_empty = False
             chunk = None
-            start_counter = 0 # counter of chunks with no content or reasoning
+            start_counter = 0  # chunks with no content and no reasoning
             for chunk in response:
-                if chunk.choices and chunk.choices[0].delta.content is not None:
+                choices = chunk.choices or []
+                if not choices:
+                    continue
+                text = _delta_text(choices[0].delta)
+                if text:
                     if first_token_time == -1:
-                        if chunk.choices[0].delta.content == "":
-                            if not first_token_empty:
-                                first_token_empty = True
-                                continue
-                            else:
-                                raise Exception("First token is empty")
                         first_token_time = time.time()
                         ttft = first_token_time - start_time
                     n_chunks += 1
-                    response_text += chunk.choices[0].delta.content
-                elif first_token_time == -1 and not chunk.choices[0].delta.content and not getattr(chunk.choices[0].delta, "reasoning_content", None):
+                    response_text += text
+                    start_counter = 0
+                    continue
+                if first_token_time == -1:
                     if start_counter >= EMPTY_CHUNK_THRESHOLD:
                         status = Status.FAILED
-                        raise Exception(f"First token not found in response after {EMPTY_CHUNK_THRESHOLD} empty chunks with no content or reasoning")
+                        raise Exception(
+                            f"First token not found in response after {EMPTY_CHUNK_THRESHOLD} "
+                            "empty chunks with no content or reasoning"
+                        )
                     start_counter += 1
-                    continue
             end_time = time.time()
             logger.debug(f"Prompt: {prompt}\nResponse text: {response_text}\n{'#' * 100}")
             if not chunk:
